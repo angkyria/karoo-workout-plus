@@ -21,7 +21,7 @@ Built on the official [karoo-ext](https://github.com/hammerheadnav/karoo-ext)
 extension API, in the style of [Climber+](https://github.com/hazzus/karoo-climber-plus).
 No system modification.
 
-| Workout+ (Karoo 2) | Chip (minimized) | The Karoo 2 workout page it covers |
+| Workout+ on a real ride (Karoo 2) | Chip (other pages) | The Karoo 2 workout page it covers |
 |---|---|---|
 | ![](docs/img/workout-page.png) | ![](docs/img/chip.png) | ![](docs/img/native-k2-workout-page.png) |
 
