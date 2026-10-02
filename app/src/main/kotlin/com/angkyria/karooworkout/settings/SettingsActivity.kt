@@ -113,12 +113,12 @@ private fun SettingsScreen(
         }
         Hint(
             when (settings.pageMode) {
-                PageMode.EVERY_PAGE ->
-                    "The new layout covers every ride page while a workout runs. The back " +
-                        "button shows the page underneath until you change pages."
                 PageMode.REPLACE_WORKOUT_PAGE ->
-                    "Only the workout page — or a page with the \"Workout+ page\" field — " +
-                        "is covered; the other pages show a chip."
+                    "The workout page — or a page with the \"Workout+ page\" field — is " +
+                        "covered by the new layout; the other pages work as usual, with a chip."
+                PageMode.EVERY_PAGE ->
+                    "The new layout covers every ride page while a workout runs. Minimizing " +
+                        "shows the page underneath until you change pages."
                 PageMode.DRAWER_ONLY -> "A chip on every page; tap it for the drawer, swipe up for the full page."
             },
         )

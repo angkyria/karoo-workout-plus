@@ -41,8 +41,9 @@ class SettingsRepo(private val context: Context) {
 
     private fun Preferences.toSettings(): Settings {
         val d = Settings()
-        // v1 saved the then-default "workout page only" mode with every edit; v2
-        // makes "cover every page" the default, so v1's stored mode is dropped once
+        // every edit saves the whole settings, page mode included: when a version
+        // changes the default mode, the mode stored by older versions is dropped once
+        // (v2 tried "cover every page"; v3 is back to replacing the workout page)
         val current = (this[Keys.version] ?: 1) >= SETTINGS_VERSION
         return Settings(
             overlayEnabled = this[Keys.overlayEnabled] ?: d.overlayEnabled,
@@ -87,6 +88,6 @@ class SettingsRepo(private val context: Context) {
             .takeIf { it.size == 4 }
 
     private companion object {
-        const val SETTINGS_VERSION = 2
+        const val SETTINGS_VERSION = 3
     }
 }

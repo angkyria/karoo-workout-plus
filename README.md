@@ -14,8 +14,8 @@
 The new Karoo OS workout layout, as a free, open-source extension for the
 **Hammerhead Karoo 2**. The Karoo 3 got a purple workout drawer — target bar,
 interval countdown, workout progress — while the Karoo 2 kept its old workout
-page. Workout+ puts the new layout **over the ride pages** while a workout
-runs, so the old workout page is never what you look at.
+page. Workout+ **replaces the workout page** with the new layout while a workout
+runs; your other ride pages work as usual.
 
 Built on the official [karoo-ext](https://github.com/hammerheadnav/karoo-ext)
 extension API, in the style of [Climber+](https://github.com/hazzus/karoo-climber-plus).
@@ -52,20 +52,21 @@ power meter isn't connected (the output then reads `--`).
 
 | Action | How |
 |---|---|
-| Minimize to the chip | tap the **handle** at the top, swipe down, or the **bottom-left** button |
-| Bring the layout back | tap the chip, or change ride page |
-| Change ride page | swipe left/right, or the top buttons (replayed to Karoo) |
+| Change ride page | the top buttons, or swipe left/right — leaving the workout page shows your page |
+| Minimize to the chip | tap the **handle** at the top, or swipe down |
+| Bring the layout back | tap the chip, or come back to the workout page |
 | Visual ↔ numeric target | tap the target |
 | Pause / resume | the round button (pauses the ride, which pauses the workout) |
 
-The bottom-right button keeps its Karoo action (lap).
+Workout+ never takes the hardware buttons: page changes, lap and back keep
+their native Karoo actions.
 
 ## Page modes (settings)
 
 | Mode | Behavior |
 |---|---|
-| **Cover every page** (default) | the layout covers every ride page while a workout runs |
-| Workout page only | covers the ride app's workout page; a chip on the others |
+| **Replace the workout page** (default) | the layout covers the workout page; the other pages work as usual, with a chip |
+| Cover every page | the layout covers every ride page while a workout runs |
 | Chip + drawer only | Climber+-style: chip → drawer → full page by hand |
 
 The workout page is recognized from the ride page's data fields, which

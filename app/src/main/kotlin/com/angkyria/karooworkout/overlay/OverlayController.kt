@@ -9,7 +9,6 @@ import android.content.Context
 import android.graphics.PixelFormat
 import android.provider.Settings as AndroidSettings
 import android.view.Gravity
-import android.view.KeyEvent
 import android.view.WindowManager
 import com.angkyria.karooworkout.R
 import com.angkyria.karooworkout.WorkoutExtension
@@ -28,7 +27,7 @@ import kotlin.math.max
  * Owns the floating overlay window (ki2 / Climber+ pattern): SYSTEM_ALERT_WINDOW
  * permission check, foreground-service keepalive, WindowManager add/update/remove,
  * and the [PanelMachine] deciding the window's size — including the full-screen
- * takeover of the ride app's workout page.
+ * takeover of the ride app's workout page. The window never takes key focus.
  *
  * All methods must be called from the main thread.
  */
@@ -104,8 +103,11 @@ class OverlayController(private val service: WorkoutExtension) {
             windowManager.addView(created, params)
             appliedParams = params
             created.onRelayoutNeeded = { refresh() }
-            created.onHardwareKeyPassthrough = { keyCode ->
-                hardwareActionFor(keyCode)?.let { service.karooSystem.dispatch(it) }
+            created.onPageSwipe = { next ->
+                // the ride app (focused, under the overlay) receives the replayed press
+                service.karooSystem.dispatch(
+                    if (next) PerformHardwareAction.TopRightPress else PerformHardwareAction.TopLeftPress,
+                )
             }
             created.onPauseToggle = { onPauseToggle?.invoke() }
         } else {
@@ -203,14 +205,14 @@ class OverlayController(private val service: WorkoutExtension) {
                 height = metrics.heightPixels - topInsetPx
             }
         }
-        // the chip stays non-focusable so hardware buttons keep their native actions;
-        // bigger panels take key focus so the bottom-left button collapses them
-        val focusFlag = if (size == Size.CHIP) WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE else 0
+        // Never take key focus. On a Karoo 2, PerformHardwareAction injects its key
+        // into the *focused* window: a focused overlay swallowed every replayed page
+        // press. Unfocused, the hardware buttons (pages, lap, back) stay native.
         return WindowManager.LayoutParams(
             width,
             height,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            focusFlag
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                 or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
                 or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT,
@@ -231,14 +233,6 @@ class OverlayController(private val service: WorkoutExtension) {
             // the takeover replaces the page: never let the native page show through
             alpha = if (size == Size.FULL) 1f else settings.opacityPercent / 100f
         }
-    }
-
-    /** Karoo hardware key -> effect replaying it, ki2's KarooKey mapping (BACK is ours). */
-    private fun hardwareActionFor(keyCode: Int): PerformHardwareAction? = when (keyCode) {
-        KeyEvent.KEYCODE_NAVIGATE_PREVIOUS -> PerformHardwareAction.TopLeftPress
-        KeyEvent.KEYCODE_NAVIGATE_NEXT -> PerformHardwareAction.TopRightPress
-        KeyEvent.KEYCODE_NAVIGATE_IN -> PerformHardwareAction.BottomRightPress
-        else -> null
     }
 
     @SuppressLint("MissingPermission") // POST_NOTIFICATIONS declared; degraded is fine pre-33 grant

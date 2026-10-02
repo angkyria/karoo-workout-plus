@@ -9,10 +9,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
-import android.util.Log
 import android.view.GestureDetector
-import android.view.KeyCharacterMap
-import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import com.angkyria.karooworkout.R
@@ -38,11 +35,11 @@ import kotlin.math.min
  *  - FULL: the workout page — targets, interval, interval graph and 2x2 data fields;
  *    shown by itself over the ride app's workout page (takeover, see [PanelMachine])
  *
- * Gestures: tap chip = open; tap drawer = full page; tap the target = visual/numeric;
- * tap the round button = pause/resume the ride; vertical swipe = grow/shrink;
- * horizontal swipe on the full page = change ride page underneath.
- * Hardware: bottom-left shrinks (the window is focusable except as a chip); the other
- * buttons are replayed to Karoo OS so paging and laps keep working.
+ * Gestures: tap chip = open; tap drawer = full page; tap the top handle, or swipe
+ * down = minimize to the chip; tap the target = visual/numeric; tap the round
+ * button = pause/resume the ride; horizontal swipe on the full page = change ride
+ * page underneath. The window never takes key focus, so every hardware button
+ * keeps its native ride-app action.
  */
 @SuppressLint("ViewConstructor")
 class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : View(context) {
@@ -58,8 +55,8 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
     /** Controller hook: the window must change size or flags. */
     var onRelayoutNeeded: (() -> Unit)? = null
 
-    /** Controller hook: replay a key / page change to Karoo OS. */
-    var onHardwareKeyPassthrough: ((Int) -> Unit)? = null
+    /** Controller hook: a horizontal swipe asks the ride app for the next / previous page. */
+    var onPageSwipe: ((next: Boolean) -> Unit)? = null
 
     /** Controller hook: the round pause/resume button was tapped. */
     var onPauseToggle: (() -> Unit)? = null
@@ -112,9 +109,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
                         return false
                     }
                     gestureHandled = true
-                    onHardwareKeyPassthrough?.invoke(
-                        if (dx < 0) KeyEvent.KEYCODE_NAVIGATE_NEXT else KeyEvent.KEYCODE_NAVIGATE_PREVIOUS,
-                    )
+                    onPageSwipe?.invoke(dx < 0)
                     return true
                 }
                 if (abs(dy) < SWIPE_MIN_DISTANCE_PX || abs(velocityY) < SWIPE_MIN_VELOCITY) return false
@@ -154,37 +149,6 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
             if (abs(dy) >= DRAG_MIN_DISTANCE_PX && abs(dy) > abs(dx) * 1.5f) verticalSwipe(dy)
         }
         return consumed || super.onTouchEvent(event)
-    }
-
-    // Key events only arrive while the window is focusable (drawer / full page, never the
-    // chip). Bottom-left (BACK) shrinks; the other buttons go back to Karoo OS via
-    // PerformHardwareAction so page changes and laps keep working behind the overlay.
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.action == KeyEvent.ACTION_UP) {
-            Log.d(TAG, "key ${KeyEvent.keyCodeToString(event.keyCode)} device=${event.deviceId} size=${machine.size}")
-        }
-        if (machine.size == Size.CHIP) return super.dispatchKeyEvent(event)
-        when (event.keyCode) {
-            KeyEvent.KEYCODE_BACK -> {
-                if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) {
-                    resize { machine.collapse() }
-                }
-            }
-            KeyEvent.KEYCODE_NAVIGATE_PREVIOUS,
-            KeyEvent.KEYCODE_NAVIGATE_NEXT,
-            KeyEvent.KEYCODE_NAVIGATE_IN,
-            -> {
-                // physical presses only: PerformHardwareAction may inject a virtual
-                // copy back at this focused window, which must not be re-forwarded
-                if (event.action == KeyEvent.ACTION_UP &&
-                    event.deviceId != KeyCharacterMap.VIRTUAL_KEYBOARD
-                ) {
-                    onHardwareKeyPassthrough?.invoke(event.keyCode)
-                }
-            }
-            else -> return super.dispatchKeyEvent(event)
-        }
-        return true
     }
 
     private fun anchor(): OverlayAnchor = when (machine.size) {
@@ -361,8 +325,8 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
     }
 
     /**
-     * Bottom-sheet handle with a down chevron, top center: tap it (or swipe down,
-     * or press the bottom-left button) to minimize to the chip. Returns its bottom.
+     * Bottom-sheet handle with a down chevron, top center: tap it (or swipe down)
+     * to minimize to the chip. Returns its bottom.
      */
     private fun drawHandle(canvas: Canvas, pad: Float): Float {
         val cx = width / 2f
@@ -938,7 +902,5 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
 
         /** A vertical drag at least this long minimizes / opens even when slow. */
         private const val DRAG_MIN_DISTANCE_PX = 90f
-
-        private const val TAG = "WorkoutOverlay"
     }
 }

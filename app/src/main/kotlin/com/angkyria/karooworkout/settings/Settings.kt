@@ -4,11 +4,11 @@ import io.hammerhead.karooext.models.DataType
 
 /** How the overlay relates to the ride app's pages. Listed in the settings in this order. */
 enum class PageMode(val label: String) {
-    /** Full screen on every ride page while a workout runs; back shows the page until the next page change. */
-    EVERY_PAGE("Cover every page"),
+    /** Full screen on the workout page (it replaces it); the other pages stay usable, with a chip. */
+    REPLACE_WORKOUT_PAGE("Replace the workout page"),
 
-    /** Full screen on the workout page only (it replaces it); chip on every other page. */
-    REPLACE_WORKOUT_PAGE("Workout page only"),
+    /** Full screen on every ride page while a workout runs; minimizing shows the page until the next page change. */
+    EVERY_PAGE("Cover every page"),
 
     /** Never full screen by itself: a chip that opens into a drawer (Climber+ style). */
     DRAWER_ONLY("Chip + drawer only"),
@@ -115,7 +115,7 @@ enum class WorkoutField(
 
 data class Settings(
     val overlayEnabled: Boolean = true,
-    val pageMode: PageMode = PageMode.EVERY_PAGE,
+    val pageMode: PageMode = PageMode.REPLACE_WORKOUT_PAGE,
     /** Show the small chip on pages that aren't taken over (tap it to open the drawer). */
     val chipOnOtherPages: Boolean = true,
     /** DRAWER_ONLY mode: pop the drawer open when a workout starts. */

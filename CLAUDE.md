@@ -6,11 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 "Workout+" (`com.angkyria.karooworkout`) — a karoo-ext extension that brings the
 Karoo 3 workout-drawer layout to the **Karoo 2** (primary target; Karoo 3 untested)
-and shows it **over the ride pages** while a workout runs (default: every page;
-the old Karoo 2 workout page is never what the rider sees). Single Android app
-module (`app/`), Kotlin, minSdk 26 (Karoo 2 runs Android 8.1 / API 27, 480x800,
-300 dpi). Modeled on Climber+ (github.com/hazzus/karoo-climber-plus). Status:
-**testing on Karoo 2** (debug-signed pre-releases).
+and **replaces the ride app's workout page** with it while a workout runs (other
+pages stay usable; "cover every page" is a setting). Single Android app module
+(`app/`), Kotlin, minSdk 26 (Karoo 2 runs Android 8.1 / API 27, 480x800, 300 dpi).
+Modeled on Climber+ (github.com/hazzus/karoo-climber-plus). Status: **testing on
+Karoo 2** (debug-signed pre-releases).
 
 ## Commands
 
@@ -34,9 +34,8 @@ karoo-ext binds to Karoo OS services, so integration only runs on a real device
 (Karoo OS binds the service from `io.hammerhead.appstore` right after install).
 Demo mode (settings) feeds `debug/DemoWorkout.kt` through the real parse + engine path.
 
-- Logs: `adb logcat -s WorkoutExtension WorkoutOverlay` — page changes (`page
-  workout=… elements=[…]`), raw workout streams every 10 s during real workouts,
-  and hardware keys reaching the overlay.
+- Logs: `adb logcat -s WorkoutExtension` — page changes (`page workout=…
+  elements=[…]`) and raw workout streams every 10 s during real workouts.
 - The rider is often using the device while you work: check `dumpsys window
   windows | grep mCurrentFocus` and screenshot before injecting taps/keys, and put
   settings (demo mode) back the way you found them.
@@ -70,9 +69,10 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   drawer), `Format`.
 - **`WorkoutPageField`** — the "Workout+ page" graphical data type; a page marker
   (and a countdown under the overlay).
-- **`settings/`** — DataStore `SettingsRepo` (`settings_version` 2: v1's stored
-  page mode is dropped once so EVERY_PAGE becomes the default); Compose only in
-  `SettingsActivity`.
+- **`settings/`** — DataStore `SettingsRepo`. Every edit stores the whole settings,
+  so changing the default page mode needs a `settings_version` bump (stored modes
+  from older versions are dropped once; now 3, default REPLACE_WORKOUT_PAGE).
+  Compose only in `SettingsActivity`.
 - Ramps: Karoo streams the ramp's current point as the target value and its ends
   as min/max (137 in 137–187). `WorkoutEngine` flags a ramp per interval (value on
   an end, or moving between fixed ends) and holds the rider to value ±band.
@@ -90,7 +90,11 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   carries the target, so `WorkoutStreams` falls back to the per-kind streams.
 - Hardware keys (`/system/usr/keylayout/gpio-keys.kl`, `qpnp_pon.kl`): top left/right
   = NAVIGATE_PREVIOUS / NAVIGATE_NEXT, bottom left = BACK, bottom right = NAVIGATE_IN.
-  No accessibility key filter; BACK reaches the focused overlay window.
+- `PerformHardwareAction` injects its key into the **focused window**: a focusable
+  overlay received its own replayed page presses (device -1) and pages never
+  changed. So the overlay is always FLAG_NOT_FOCUSABLE — hardware buttons stay
+  native, and a swipe's replayed press reaches the ride app. (Climber+'s focusable
+  panel + key replay pattern does not work for paging on a Karoo 2.)
 - Workout fields observed: interval countdown 720000 = 12:00 (ms), workout remaining
   in ms, `WORKOUT_STATE` = 2 while running, `WORKOUT_DIFFICULTY` = 1.0 at 100 %.
 - The ride app's header row (ride time, battery, clock) is 60 px = 32 dp; the system
