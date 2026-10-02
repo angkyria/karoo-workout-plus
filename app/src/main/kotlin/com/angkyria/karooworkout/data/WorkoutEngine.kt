@@ -58,6 +58,17 @@ class WorkoutEngine {
             val v = raw.value?.takeIf { it > 0 }
             val lo = raw.min
             val hi = raw.max
+            val ends = lo to hi
+            if (lastEnds != null && ends != lastEnds) {
+                // The target itself changed inside the step: Karoo moves the step index a
+                // tick before the target streams catch up, so what was seen so far was the
+                // previous interval's target. Start the level history over.
+                startLevel = null
+                endLevel = null
+                ramp = false
+                rampEndsKnown = false
+                lastValue = null
+            }
             val bounded = v != null && lo != null && hi != null && hi > lo
             if (bounded && (v!! <= lo!! || v >= hi!!)) {
                 ramp = true
@@ -68,7 +79,6 @@ class WorkoutEngine {
                     rampEndsKnown = true
                 }
             }
-            val ends = lo to hi
             val previous = lastValue
             if (bounded && previous != null && abs(v!! - previous) > 0.5 && ends == lastEnds) ramp = true
             lastValue = v

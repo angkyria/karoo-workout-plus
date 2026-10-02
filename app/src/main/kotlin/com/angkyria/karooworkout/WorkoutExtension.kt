@@ -1,6 +1,7 @@
 package com.angkyria.karooworkout
 
 import android.util.Log
+import com.angkyria.karooworkout.data.CoreHeat
 import com.angkyria.karooworkout.data.RiderProfile
 import com.angkyria.karooworkout.data.StreamHub
 import com.angkyria.karooworkout.data.WorkoutEngine
@@ -128,7 +129,12 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
         // page data fields stream only while the full page that draws them is up
         scope.launch {
             combine(settingsRepo.settings, overlay.fieldsVisible) { s, visible ->
-                if (visible) s.pageFields.mapNotNull { it.dataTypeId }.toSet() else emptySet()
+                if (!visible) {
+                    emptySet()
+                } else {
+                    s.pageFields.flatMap { listOfNotNull(it.dataTypeId, it.extraDataTypeId) }.toSet() +
+                        (if (s.coreHeatStrip) CoreHeat.STRIP_STREAMS else emptySet())
+                }
             }
                 .distinctUntilChanged()
                 .collect { hub.want(OWNER_FIELDS, it) }
@@ -208,7 +214,9 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
         }
 
         if (state is WorkoutUiState.Shown && s.overlayEnabled) {
-            overlay.show(state, s, i.profile, i.values, freshStart)
+            // demo adds a synthetic CORE reading; a real sensor's values win
+            val sysValues = if (s.demoMode) demo.coreHeat() + i.values else i.values
+            overlay.show(state, s, i.profile, sysValues, freshStart)
         } else {
             overlay.hide()
         }

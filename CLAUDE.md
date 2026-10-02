@@ -69,6 +69,12 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   drawer), `Format`.
 - **`WorkoutPageField`** — the "Workout+ page" graphical data type; a page marker
   (and a countdown under the overlay).
+- **`data/CoreHeat`** — CORE sensor + CORE Heat extension (`TYPE_EXT::coreheat::*`,
+  github.com/angkyria/karoo-core) ids, zones on the printed tenth, CORE colors. The
+  CORE_TEMP / SKIN_TEMP streams also carry a data-quality flag: always read the
+  named field (`WorkoutField.valueField`), never the first value.
+- The workout page is **pinned** (`PanelMachine.pinned`): no handle, no minimize
+  there — the rider asked for it; minimizing only exists on other pages.
 - **`settings/`** — DataStore `SettingsRepo`. Every edit stores the whole settings,
   so changing the default page mode needs a `settings_version` bump (stored modes
   from older versions are dropped once; now 3, default REPLACE_WORKOUT_PAGE).
@@ -96,7 +102,11 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   native, and a swipe's replayed press reaches the ride app. (Climber+'s focusable
   panel + key replay pattern does not work for paging on a Karoo 2.)
 - Workout fields observed: interval countdown 720000 = 12:00 (ms), workout remaining
-  in ms, `WORKOUT_STATE` = 2 while running, `WORKOUT_DIFFICULTY` = 1.0 at 100 %.
+  in ms, `WORKOUT_STATE` 2 while waiting at the start, 1 while running,
+  `WORKOUT_DIFFICULTY` = 1.0 at 100 %.
+- At a step change the step index moves a tick before the target streams: the new
+  step's first sample carries the previous target. `Rec.observe` re-baselines when
+  the target's min/max change inside a step (a real ramp keeps its ends).
 - The ride app's header row (ride time, battery, clock) is 60 px = 32 dp; the system
   status bar is 45 px. The full page starts below the taller of the two.
 - `/system/fonts/IBMPlexSansCondensed-Medium.otf` exists.

@@ -89,6 +89,20 @@ class WorkoutEngineTest {
     }
 
     @Test
+    fun targetCatchingUpAfterTheStepChangeIsNotARamp() {
+        // seen on a Karoo 2: the step index moves first, the power target a tick later
+        val engine = WorkoutEngine()
+        engine.tick(snap(0, 2_000, primary = RawTarget(value = 150.0, min = 143.0, max = 157.0)))
+        engine.tick(snap(1, 240_000, primary = RawTarget(value = 150.0, min = 143.0, max = 157.0)))
+        val s = engine.tick(snap(1, 239_000, primary = RawTarget(value = 250.0, min = 243.0, max = 257.0, output = 250.0)))
+        val rec = s.current!!
+        assertEquals(250.0, rec.startLevel!!, 1e-9)
+        assertEquals(250.0, rec.endLevel!!, 1e-9)
+        assertFalse(s.primary!!.ramp)
+        assertEquals(243.0, s.primary!!.min, 1e-9)
+    }
+
+    @Test
     fun rangeWithItsValueInTheMiddleStaysARange() {
         val t = WorkoutEngine.resolve(RawTarget(value = 400.0, min = 390.0, max = 410.0, output = 395.0), TargetKind.POWER, true)!!
         assertFalse(t.ramp)

@@ -25,6 +25,7 @@ class SettingsRepo(private val context: Context) {
         val targetDisplay = stringPreferencesKey("target_display")
         val showSecondary = booleanPreferencesKey("show_secondary")
         val smoothedOutput = booleanPreferencesKey("smoothed_output")
+        val coreHeatStrip = booleanPreferencesKey("core_heat_strip")
         val chipAnchor = stringPreferencesKey("chip_anchor")
         val drawerAnchor = stringPreferencesKey("drawer_anchor")
         val heightPercent = intPreferencesKey("height_percent")
@@ -53,6 +54,7 @@ class SettingsRepo(private val context: Context) {
             targetDisplay = enumOr(this[Keys.targetDisplay], d.targetDisplay),
             showSecondary = this[Keys.showSecondary] ?: d.showSecondary,
             smoothedOutput = this[Keys.smoothedOutput] ?: d.smoothedOutput,
+            coreHeatStrip = this[Keys.coreHeatStrip] ?: d.coreHeatStrip,
             chipAnchor = enumOr(this[Keys.chipAnchor], d.chipAnchor),
             drawerAnchor = enumOr(this[Keys.drawerAnchor], d.drawerAnchor),
             heightPercent = (this[Keys.heightPercent] ?: d.heightPercent).coerceIn(30, 70),
@@ -71,6 +73,7 @@ class SettingsRepo(private val context: Context) {
         this[Keys.targetDisplay] = s.targetDisplay.name
         this[Keys.showSecondary] = s.showSecondary
         this[Keys.smoothedOutput] = s.smoothedOutput
+        this[Keys.coreHeatStrip] = s.coreHeatStrip
         this[Keys.chipAnchor] = s.chipAnchor.name
         this[Keys.drawerAnchor] = s.drawerAnchor.name
         this[Keys.heightPercent] = s.heightPercent

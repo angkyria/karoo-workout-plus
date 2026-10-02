@@ -8,8 +8,9 @@ import com.angkyria.karooworkout.settings.PageMode
  *    page in [PageMode.REPLACE_WORKOUT_PAGE] — the pages underneath are covered;
  *  - by hand: the rider grew the chip -> drawer -> full page.
  *
- * Minimizing reveals the page underneath; changing pages brings the takeover
- * back (on every page, or on the workout page only), and so does tapping the chip.
+ * The workout page itself can't be minimized. Elsewhere, minimizing reveals the page
+ * underneath; changing pages brings the takeover back (on every page, or on the
+ * workout page only), and so does tapping the chip.
  */
 class PanelMachine {
 
@@ -76,8 +77,20 @@ class PanelMachine {
         }
     }
 
-    /** Minimize (back button, swipe down, the page's handle): always straight to the chip. */
-    fun collapse() = chip()
+    /**
+     * The workout page is always covered: no minimizing there (only in the modes that
+     * take pages over — in [PageMode.DRAWER_ONLY] the rider sizes everything by hand).
+     */
+    fun pinned(mode: PageMode): Boolean = mode != PageMode.DRAWER_ONLY && onWorkoutPage
+
+    /** Minimize (swipe down, the page's handle): straight to the chip, unless [pinned]. */
+    fun collapse(mode: PageMode) {
+        if (pinned(mode)) {
+            takeOver()
+            return
+        }
+        chip()
+    }
 
     fun onWorkoutEnded() = chip()
 

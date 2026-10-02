@@ -143,6 +143,14 @@ private fun SettingsScreen(
         SwitchRow("Show secondary target", settings.showSecondary) { on -> update { it.copy(showSecondary = on) } }
         SwitchRow("Smoothed output", settings.smoothedOutput) { on -> update { it.copy(smoothedOutput = on) } }
 
+        // ---- Core heat ----
+        SectionTitle("Core heat")
+        SwitchRow("Core / HSI / skin strip", settings.coreHeatStrip) { on -> update { it.copy(coreHeatStrip = on) } }
+        Hint(
+            "Shows on the workout page while a CORE sensor streams; the heat strain index " +
+                "comes from the CORE Heat extension. More heat fields are in the page fields.",
+        )
+
         // ---- Position & size ----
         SectionTitle("Chip position")
         RadioRow("Bottom", settings.chipAnchor == OverlayAnchor.BOTTOM) {

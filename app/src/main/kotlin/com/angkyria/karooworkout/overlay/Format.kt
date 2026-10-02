@@ -31,9 +31,14 @@ object Format {
 
     fun output(t: Target): String = t.output?.roundToInt()?.toString() ?: "--"
 
-    /** A system stream value (SI units, times in ms) for a page-field cell. */
-    fun field(format: FieldFormat, values: Map<String, Double>?, imperial: Boolean): String {
-        val raw = values?.let { it[DataType.Field.SINGLE] ?: it.values.firstOrNull() } ?: return "--"
+    /**
+     * A system stream value (SI units, times in ms) for a page-field cell; [valueField]
+     * names the field when the stream carries more than its value.
+     */
+    fun field(format: FieldFormat, values: Map<String, Double>?, imperial: Boolean, valueField: String? = null): String {
+        val raw = values?.let {
+            if (valueField != null) it[valueField] else it[DataType.Field.SINGLE] ?: it.values.firstOrNull()
+        } ?: return "--"
         return when (format) {
             FieldFormat.INTEGER -> "${raw.roundToInt()}"
             FieldFormat.NUMBER -> "%.1f".format(raw)
@@ -41,7 +46,12 @@ object Format {
             FieldFormat.SPEED -> "%.1f".format(raw * if (imperial) 2.23694 else 3.6)
             FieldFormat.DISTANCE -> "%.1f".format(raw / if (imperial) 1609.344 else 1000.0)
             FieldFormat.DURATION -> elapsed(abs(raw).toLong())
+            FieldFormat.TEMPERATURE -> temperature(raw, imperial)
             FieldFormat.DERIVED -> "--"
         }
     }
+
+    /** Body temperature: °C with one decimal, °F for imperial. */
+    fun temperature(celsius: Double?, imperial: Boolean): String =
+        celsius?.let { "%.1f".format(if (imperial) it * 1.8 + 32 else it) } ?: "--"
 }

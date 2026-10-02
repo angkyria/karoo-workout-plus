@@ -1,5 +1,6 @@
 package com.angkyria.karooworkout.debug
 
+import com.angkyria.karooworkout.data.CoreHeat
 import com.angkyria.karooworkout.data.WorkoutStreams
 import io.hammerhead.karooext.models.DataType
 import kotlin.math.sin
@@ -54,6 +55,20 @@ class DemoWorkout(private val ftp: Int = 250) {
     /** Advance demo time; loops back to the first interval at the end. */
     fun tick(dtMs: Long) {
         if (!paused) positionMs = (positionMs + dtMs) % totalMs
+    }
+
+    /**
+     * A CORE sensor plus CORE Heat's index, so the core heat strip shows on the desk:
+     * core warms through the workout, the index drifts across heat zones 2-3.
+     */
+    fun coreHeat(): Map<String, Map<String, Double>> {
+        val t = positionMs / 1000.0
+        val progress = positionMs.toDouble() / totalMs
+        return mapOf(
+            DataType.Type.CORE_TEMP to mapOf(DataType.Field.CORE_TEMP to 37.4 + 1.1 * progress),
+            DataType.Type.SKIN_TEMP to mapOf(DataType.Field.SKIN_TEMP to 34.2 + 0.6 * sin(t / 50.0)),
+            CoreHeat.HEAT_STRAIN to mapOf(DataType.Field.SINGLE to 2.6 + 1.2 * sin(t / 40.0)),
+        )
     }
 
     fun raw(): Map<String, Map<String, Double>> {

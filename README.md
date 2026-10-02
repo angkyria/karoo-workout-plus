@@ -39,9 +39,13 @@ No system modification.
 - **Workout**: time left, workout scale when it isn't 100 %, progress bar, and an
   **interval graph** — intervals already ridden at their real length, colored by
   your power / HR zones, the current one outlined, the rest of the workout hatched.
+- **Core heat** with a [CORE](https://corebodytemp.com) sensor: a strip with core
+  and skin temperature and the Heat Strain Index, in CORE's heat-zone colors.
+  The index, heat zone, training load and adaptation come from the
+  [CORE Heat](https://github.com/angkyria/karoo-core) extension when it's installed.
 - **Four data fields** of your choice (3s power, HR, cadence, NP, TSS, lap
-  power, workout time left, …) plus Workout+'s own **time in range** for the
-  interval and the workout.
+  power, workout time left, core / skin temperature, heat strain, …) plus
+  Workout+'s own **time in range** for the interval and the workout.
 
 Ranges follow Karoo OS: single-value targets get the implied band (power ±5 %,
 heart rate ±7.5 %), and in/out of range is judged on the rounded numbers you
@@ -53,7 +57,7 @@ power meter isn't connected (the output then reads `--`).
 | Action | How |
 |---|---|
 | Change ride page | the top buttons, or swipe left/right — leaving the workout page shows your page |
-| Minimize to the chip | tap the **handle** at the top, or swipe down |
+| Minimize to the chip | on other pages: tap the **handle** at the top, or swipe down. The workout page always stays covered |
 | Bring the layout back | tap the chip, or come back to the workout page |
 | Visual ↔ numeric target | tap the target |
 | Pause / resume | the round button (pauses the ride, which pauses the workout) |
@@ -137,6 +141,8 @@ release (`.github/workflows/release.yml`).
 - [karoo-ext](https://github.com/hammerheadnav/karoo-ext) by Hammerhead (Apache-2.0)
 - [Climber+](https://github.com/hazzus/karoo-climber-plus) by hazzus (Apache-2.0) —
   project structure and overlay window pattern
+- [CORE Heat](https://github.com/angkyria/karoo-core) (Apache-2.0) — heat zones,
+  adaptation levels and colors; its data streams
 - Overlay window pattern originally from [Ki2](https://github.com/valterc/ki2) by valterc
 - Glyphs from [Material Symbols](https://github.com/google/material-design-icons) (Apache-2.0)
 

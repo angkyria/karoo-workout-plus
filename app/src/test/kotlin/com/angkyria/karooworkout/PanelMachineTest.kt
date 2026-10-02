@@ -41,7 +41,7 @@ class PanelMachineTest {
         val m = PanelMachine()
         m.show(dataPage, every)
         m.onWorkoutStarted(every, autoOpenDrawer = false)
-        m.collapse()
+        m.collapse(every)
         assertEquals(Size.CHIP, m.size)
         m.show(dataPage, every) // Karoo re-reports the same page now and then
         assertEquals(Size.CHIP, m.size)
@@ -97,17 +97,19 @@ class PanelMachineTest {
     }
 
     @Test
-    fun backOnATakeoverRevealsTheNativePageUntilTheNextVisit() {
+    fun theWorkoutPageCannotBeMinimized() {
         val m = PanelMachine()
         m.onWorkoutStarted(replace, autoOpenDrawer = true)
         m.show(workoutPage, replace)
-        m.collapse()
-        assertEquals(Size.CHIP, m.size) // straight to the chip, not half a page
-        m.show(workoutPage, replace) // same page re-reported
-        assertEquals(Size.CHIP, m.size)
-        m.show(dataPage, replace)
-        m.show(workoutPage, replace)
+        assertTrue(m.pinned(replace))
+        m.collapse(replace)
         assertEquals(Size.FULL, m.size)
+        // other pages still minimize
+        m.show(dataPage, replace)
+        assertEquals(Size.CHIP, m.size)
+        m.expand(replace)
+        m.collapse(replace)
+        assertEquals(Size.CHIP, m.size)
     }
 
     @Test
@@ -115,7 +117,7 @@ class PanelMachineTest {
         val m = PanelMachine()
         m.show(dataPage, every)
         m.onWorkoutStarted(every, autoOpenDrawer = false)
-        m.collapse()
+        m.collapse(every)
         assertEquals(Size.CHIP, m.size)
         m.expand(every) // tap the chip
         assertEquals(Size.FULL, m.size)
@@ -135,7 +137,7 @@ class PanelMachineTest {
         assertEquals(Size.DRAWER, m.size)
         m.expand(PageMode.DRAWER_ONLY)
         assertEquals(Size.FULL, m.size)
-        m.collapse()
+        m.collapse(PageMode.DRAWER_ONLY)
         assertEquals(Size.CHIP, m.size)
         m.expand(PageMode.DRAWER_ONLY)
         assertEquals(Size.DRAWER, m.size)

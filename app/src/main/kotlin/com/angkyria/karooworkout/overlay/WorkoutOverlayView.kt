@@ -13,6 +13,7 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import com.angkyria.karooworkout.R
+import com.angkyria.karooworkout.data.CoreHeat
 import com.angkyria.karooworkout.data.RiderProfile
 import com.angkyria.karooworkout.data.Target
 import com.angkyria.karooworkout.data.TargetKind
@@ -23,6 +24,7 @@ import com.angkyria.karooworkout.settings.OverlayAnchor
 import com.angkyria.karooworkout.settings.Settings
 import com.angkyria.karooworkout.settings.TargetDisplay
 import com.angkyria.karooworkout.settings.WorkoutField
+import io.hammerhead.karooext.models.DataType
 import java.io.File
 import kotlin.math.abs
 import kotlin.math.max
@@ -84,7 +86,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
                 gestureHandled = true
                 when {
                     machine.size == Size.CHIP -> resize { machine.expand(settings.pageMode) }
-                    minimizeHit.contains(e.x, e.y) -> resize { machine.collapse() }
+                    minimizeHit.contains(e.x, e.y) -> resize { machine.collapse(settings.pageMode) }
                     pauseHit.contains(e.x, e.y) -> onPauseToggle?.invoke()
                     targetHit.contains(e.x, e.y) -> {
                         displayOverride =
@@ -127,8 +129,9 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
             if (machine.size == Size.FULL) return false
             resize { machine.expand(settings.pageMode) }
         } else {
-            if (machine.size == Size.CHIP) return false
-            resize { machine.collapse() }
+            // the workout page stays covered
+            if (machine.size == Size.CHIP || machine.pinned(settings.pageMode)) return false
+            resize { machine.collapse(settings.pageMode) }
         }
         gestureHandled = true
         return true
@@ -220,7 +223,15 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
                 s.history,
                 s.workoutInRangePercent,
                 profile,
-                settings.pageFields.map { fieldValue(it, s) },
+                machine.pinned(settings.pageMode),
+                settings.pageFields.map { fieldValue(it, s) to fieldColor(it) },
+                coreHeat()?.let { heat ->
+                    listOf(
+                        Format.temperature(heat.core, profile.imperial),
+                        Format.temperature(heat.skin, profile.imperial),
+                        heat.hsi?.let { "%.1f".format(it) },
+                    )
+                },
             )
         }
         return common + rest
@@ -283,7 +294,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         }
     }
 
-    private enum class Section { PRIMARY, SECONDARY, INTERVAL, WORKOUT, FIELDS }
+    private enum class Section { PRIMARY, SECONDARY, INTERVAL, WORKOUT, CORE_HEAT, FIELDS }
 
     /** Stack [sections] (with height weights) top to bottom inside [area]. */
     private fun layout(area: RectF, gap: Float, sections: List<Pair<Section, Float>>): List<Pair<Section, RectF>> {
@@ -303,14 +314,17 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
     private fun drawPage(canvas: Canvas, s: WorkoutUiState.Shown) {
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
         val pad = width * 0.035f
-        val handleBottom = drawHandle(canvas, pad)
-        val area = RectF(pad, handleBottom + pad * 0.35f, width - pad, height - pad)
+        // no handle on the workout page: it can't be minimized there
+        val top = if (machine.pinned(settings.pageMode)) pad * 0.8f else drawHandle(canvas, pad) + pad * 0.35f
+        val area = RectF(pad, top, width - pad, height - pad)
         val secondary = s.secondary.takeIf { settings.showSecondary }
+        val heat = coreHeat()
         val sections = buildList {
             add(Section.PRIMARY to 25f)
             if (secondary != null) add(Section.SECONDARY to 9f)
             add(Section.INTERVAL to 25f)
             add(Section.WORKOUT to 20f)
+            if (heat != null) add(Section.CORE_HEAT to 9f)
             add(Section.FIELDS to 24f)
         }
         for ((section, rect) in layout(area, height * 0.016f, sections)) {
@@ -319,9 +333,67 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
                 Section.SECONDARY -> secondary?.let { drawSecondary(canvas, rect, it) }
                 Section.INTERVAL -> drawInterval(canvas, rect, s)
                 Section.WORKOUT -> drawWorkout(canvas, rect, s, withGraph = true)
+                Section.CORE_HEAT -> heat?.let { drawCoreHeat(canvas, rect, it) }
                 Section.FIELDS -> drawFields(canvas, rect, s)
             }
         }
+    }
+
+    /** The CORE reading for the strip, or null when the strip is off or no CORE streams. */
+    private fun coreHeat(): CoreHeat.Reading? =
+        if (!settings.coreHeatStrip) null else CoreHeat.reading(sysValues).takeIf { it.present }
+
+    /**
+     * Core heat strip, like CORE Heat's HUD: CORE and SKIN temperature colored by the
+     * heat zone, the Heat Strain Index in a zone-colored pill between them.
+     */
+    private fun drawCoreHeat(canvas: Canvas, rect: RectF, heat: CoreHeat.Reading) {
+        val r = rect.height() * 0.22f
+        fillPaint.color = WorkoutColors.TRACK
+        canvas.drawRoundRect(rect, r, r, fillPaint)
+        val size = rect.height() * 0.52f
+        val inset = rect.height() * 0.3f
+        val baseline = rect.centerY() + capHeight(size) / 2
+        val tempColor = heat.color ?: Color.WHITE
+
+        labelPaint.textSize = size * 0.62f
+        textPaint.textSize = size
+        // CORE, left
+        labelPaint.textAlign = Paint.Align.LEFT
+        canvas.drawText("CORE", rect.left + inset, baseline, labelPaint)
+        textPaint.textAlign = Paint.Align.LEFT
+        textPaint.color = tempColor
+        canvas.drawText(
+            Format.temperature(heat.core, profile.imperial),
+            rect.left + inset + labelPaint.measureText("CORE ") + size * 0.1f,
+            baseline,
+            textPaint,
+        )
+        // SKIN, right
+        textPaint.textAlign = Paint.Align.RIGHT
+        val skin = Format.temperature(heat.skin, profile.imperial)
+        canvas.drawText(skin, rect.right - inset, baseline, textPaint)
+        labelPaint.textAlign = Paint.Align.RIGHT
+        canvas.drawText("SKIN", rect.right - inset - textPaint.measureText(skin) - size * 0.3f, baseline, labelPaint)
+        textPaint.color = Color.WHITE
+        labelPaint.textAlign = Paint.Align.LEFT
+
+        // heat strain index pill, center
+        val hsi = heat.hsi?.let { "HSI %.1f".format(it) } ?: "HSI --"
+        textPaint.textSize = size * 0.8f
+        val pillW = textPaint.measureText(hsi) + rect.height() * 0.6f
+        tmp.set(
+            rect.centerX() - pillW / 2,
+            rect.top + rect.height() * 0.14f,
+            rect.centerX() + pillW / 2,
+            rect.bottom - rect.height() * 0.14f,
+        )
+        fillPaint.color = heat.color ?: WorkoutColors.BAND
+        canvas.drawRoundRect(tmp, tmp.height() / 2, tmp.height() / 2, fillPaint)
+        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.color = if (heat.color != null) WorkoutColors.TEXT_DARK else Color.WHITE
+        canvas.drawText(hsi, rect.centerX(), rect.centerY() + capHeight(textPaint) / 2, textPaint)
+        textPaint.color = Color.WHITE
     }
 
     /**
@@ -761,7 +833,21 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
 
             textPaint.textAlign = Paint.Align.RIGHT
             textPaint.textSize = cellH * 0.5f
+            textPaint.color = fieldColor(field) ?: Color.WHITE
             canvas.drawText(fieldValue(field, s), left + cellW - pad, top + cellH - cellH * 0.13f, textPaint)
+            textPaint.color = Color.WHITE
+        }
+    }
+
+    /** CORE's colors for the heat fields: zone colors, adaptation level blues. */
+    private fun fieldColor(field: WorkoutField): Int? {
+        fun single(typeId: String) = sysValues[typeId]?.get(DataType.Field.SINGLE)
+        return when (field) {
+            WorkoutField.HEAT_STRAIN -> single(CoreHeat.HEAT_STRAIN)?.let(CoreHeat::hsiColor)
+            WorkoutField.HEAT_ZONE -> single(CoreHeat.HEAT_ZONE)?.let { CoreHeat.zoneColor(it.toInt()) }
+            WorkoutField.HEAT_ADAPTATION -> single(CoreHeat.HEAT_ADAPTATION)?.let(CoreHeat::adaptationColor)
+            WorkoutField.CORE_TEMP, WorkoutField.SKIN_TEMP -> CoreHeat.reading(sysValues).color
+            else -> null
         }
     }
 
@@ -772,7 +858,9 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         WorkoutField.WORKOUT_REMAINING -> s.totalRemainingMs?.let { Format.countdown(it) } ?: "--"
         WorkoutField.INTERVAL_COUNT -> "${s.stepIndex + 1}/${s.stepCount}"
         WorkoutField.SCALE -> s.scalePercent?.toString() ?: "--"
-        else -> field.dataTypeId?.let { Format.field(field.format, sysValues[it], profile.imperial) } ?: "--"
+        else -> field.dataTypeId?.let {
+            Format.field(field.format, sysValues[it], profile.imperial, field.valueField)
+        } ?: "--"
     }
 
     // ------------------------------------------------------------------- chip

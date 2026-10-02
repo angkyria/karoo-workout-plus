@@ -1,5 +1,6 @@
 package com.angkyria.karooworkout.settings
 
+import com.angkyria.karooworkout.data.CoreHeat
 import io.hammerhead.karooext.models.DataType
 
 /** How the overlay relates to the ride app's pages. Listed in the settings in this order. */
@@ -29,6 +30,7 @@ enum class FieldCategory(val label: String) {
     SPEED("Speed & distance"),
     TIME("Time"),
     LAP("Lap"),
+    CORE_HEAT("Core heat (CORE sensor)"),
 }
 
 /** How a system stream's value is rendered in a page-field cell. */
@@ -53,6 +55,9 @@ enum class FieldFormat {
 
     /** Elapsed time -> m:ss / h:mm:ss. */
     DURATION,
+
+    /** °C, one decimal; °F for imperial. */
+    TEMPERATURE,
 }
 
 /**
@@ -65,6 +70,10 @@ enum class WorkoutField(
     val category: FieldCategory,
     val format: FieldFormat,
     val dataTypeId: String? = null,
+    /** Field to read when the stream carries more than the value (e.g. a quality flag). */
+    val valueField: String? = null,
+    /** A second stream the cell needs, e.g. the heat index that colors a temperature. */
+    val extraDataTypeId: String? = null,
 ) {
     // workout engine
     WORKOUT_IN_RANGE("IN RANGE %", FieldCategory.WORKOUT, FieldFormat.DERIVED),
@@ -111,6 +120,24 @@ enum class WorkoutField(
     LAP_NP("LAP NP", FieldCategory.LAP, FieldFormat.INTEGER, DataType.Type.NORMALIZED_POWER_LAP),
     LAP_CADENCE("LAP CADENCE", FieldCategory.LAP, FieldFormat.INTEGER, DataType.Type.CADENCE_LAP),
     LAP_TIME("LAP TIME", FieldCategory.LAP, FieldFormat.DURATION, DataType.Type.ELAPSED_TIME_LAP),
+
+    // core heat: the Karoo's CORE streams, colored by the heat zone, and CORE Heat's metrics
+    CORE_TEMP(
+        "CORE TEMP", FieldCategory.CORE_HEAT, FieldFormat.TEMPERATURE, DataType.Type.CORE_TEMP,
+        valueField = DataType.Field.CORE_TEMP, extraDataTypeId = CoreHeat.HEAT_STRAIN,
+    ),
+    SKIN_TEMP(
+        "SKIN TEMP", FieldCategory.CORE_HEAT, FieldFormat.TEMPERATURE, DataType.Type.SKIN_TEMP,
+        valueField = DataType.Field.SKIN_TEMP, extraDataTypeId = CoreHeat.HEAT_STRAIN,
+    ),
+    MAX_CORE_TEMP(
+        "MAX CORE", FieldCategory.CORE_HEAT, FieldFormat.TEMPERATURE, DataType.Type.MAX_CORE_TEMP,
+        valueField = DataType.Field.CORE_TEMP,
+    ),
+    HEAT_STRAIN("HEAT STRAIN", FieldCategory.CORE_HEAT, FieldFormat.NUMBER, CoreHeat.HEAT_STRAIN),
+    HEAT_ZONE("HEAT ZONE", FieldCategory.CORE_HEAT, FieldFormat.INTEGER, CoreHeat.HEAT_ZONE),
+    HEAT_LOAD("HEAT LOAD", FieldCategory.CORE_HEAT, FieldFormat.NUMBER, CoreHeat.HEAT_LOAD),
+    HEAT_ADAPTATION("HEAT ADAPT %", FieldCategory.CORE_HEAT, FieldFormat.INTEGER, CoreHeat.HEAT_ADAPTATION),
 }
 
 data class Settings(
@@ -124,6 +151,8 @@ data class Settings(
     val showSecondary: Boolean = true,
     /** Judge and show the smoothed output Karoo streams with the target (vs. instant). */
     val smoothedOutput: Boolean = true,
+    /** Core / heat index / skin strip on the workout page whenever a CORE sensor streams. */
+    val coreHeatStrip: Boolean = true,
     val chipAnchor: OverlayAnchor = OverlayAnchor.BOTTOM,
     val drawerAnchor: OverlayAnchor = OverlayAnchor.BOTTOM,
     /** Drawer height as % of the screen. */
