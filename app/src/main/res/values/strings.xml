@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Workout+</string>
+    <string name="extension_name">Workout+</string>
+    <string name="field_workout_page">Workout+ page</string>
+    <string name="field_workout_page_description">Workout+ takes the page with this field over with the new workout layout while a workout runs.</string>
+</resources>

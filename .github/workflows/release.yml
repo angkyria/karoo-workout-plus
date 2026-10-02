@@ -1,0 +1,64 @@
+name: Release
+
+# Tag-push release: `git tag v0.1.0 && git push origin v0.1.0` runs the tests,
+# builds the signed APK and attaches it to a GitHub release. Only plain vX.Y.Z
+# tags trigger it — test pre-releases (e.g. v0.1.0-k2test.1) are published by hand.
+#
+# Required repo secrets:
+#   KEYSTORE_BASE64   — `base64 -i <your keystore>.jks`
+#   KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD — matching keystore.properties
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify tag matches Gradle version
+        run: |
+          VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\(.*\)"/\1/p' app/build.gradle.kts)
+          if [ "v$VERSION_NAME" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match versionName $VERSION_NAME in app/build.gradle.kts" >&2
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Write signing config
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/keystore.jks"
+          cat > keystore.properties <<EOF
+          storeFile=$RUNNER_TEMP/keystore.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+
+      - name: Build signed release APK
+        run: ./gradlew assembleRelease
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: app/build/outputs/apk/release/karoo-workout-plus.apk

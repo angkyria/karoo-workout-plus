@@ -1,0 +1,149 @@
+# Workout+
+
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+![Status](https://img.shields.io/badge/status-testing-orange)
+![Karoo 2](https://img.shields.io/badge/Karoo%202-in%20testing-orange)
+![Karoo 3](https://img.shields.io/badge/Karoo%203-untested-lightgrey)
+
+> [!WARNING]
+> **Testing mode — Karoo 2.** Workout+ is in active testing on a Karoo 2
+> (ride app 4.197). It runs on real rides, but expect rough edges, and builds
+> are debug-signed test builds. Karoo 3 should work but hasn't been tried yet.
+> Issues and ride reports are welcome.
+
+The new Karoo OS workout layout, as a free, open-source extension for the
+**Hammerhead Karoo 2**. The Karoo 3 got a purple workout drawer — target bar,
+interval countdown, workout progress — while the Karoo 2 kept its old workout
+page. Workout+ puts the new layout **over the ride pages** while a workout
+runs, so the old workout page is never what you look at.
+
+Built on the official [karoo-ext](https://github.com/hammerheadnav/karoo-ext)
+extension API, in the style of [Climber+](https://github.com/hazzus/karoo-climber-plus).
+No system modification.
+
+| Workout+ (Karoo 2) | Chip (minimized) | The Karoo 2 workout page it covers |
+|---|---|---|
+| ![](docs/img/workout-page.png) | ![](docs/img/chip.png) | ![](docs/img/native-k2-workout-page.png) |
+
+## What you get
+
+- **Primary target**, native look: icon + `POWER` / `HEART RATE`, the target
+  range with the target glyph, and a bar whose middle third is the range. The
+  value box slides along it: **green** in range, **blue ▲** below, **red ▼**
+  above. Tap it to switch to the numeric style.
+- **Ramps** (warm-ups, ramp tests) hold you to the ramp's *current* value, not
+  the whole 137–187 W span, and are drawn as slopes in the graph.
+- **Secondary target** (power / HR / cadence) as a compact row.
+- **Interval**: `3 OF 9`, a huge countdown (amber in the last 5 s), progress bar,
+  and a round **pause / resume** button.
+- **Workout**: time left, workout scale when it isn't 100 %, progress bar, and an
+  **interval graph** — intervals already ridden at their real length, colored by
+  your power / HR zones, the current one outlined, the rest of the workout hatched.
+- **Four data fields** of your choice (3s power, HR, cadence, NP, TSS, lap
+  power, workout time left, …) plus Workout+'s own **time in range** for the
+  interval and the workout.
+
+Ranges follow Karoo OS: single-value targets get the implied band (power ±5 %,
+heart rate ±7.5 %), and in/out of range is judged on the rounded numbers you
+see, so the color never contradicts the digits. The target shows even when the
+power meter isn't connected (the output then reads `--`).
+
+### Gestures and buttons
+
+| Action | How |
+|---|---|
+| Minimize to the chip | tap the **handle** at the top, swipe down, or the **bottom-left** button |
+| Bring the layout back | tap the chip, or change ride page |
+| Change ride page | swipe left/right, or the top buttons (replayed to Karoo) |
+| Visual ↔ numeric target | tap the target |
+| Pause / resume | the round button (pauses the ride, which pauses the workout) |
+
+The bottom-right button keeps its Karoo action (lap).
+
+## Page modes (settings)
+
+| Mode | Behavior |
+|---|---|
+| **Cover every page** (default) | the layout covers every ride page while a workout runs |
+| Workout page only | covers the ride app's workout page; a chip on the others |
+| Chip + drawer only | Climber+-style: chip → drawer → full page by hand |
+
+The workout page is recognized from the ride page's data fields, which
+karoo-ext reports (on the Karoo 2 the native workout page is a single
+`TYPE_WORKOUT_ID` element), or by the **Workout+ page** data field you can add
+to any page of your own.
+
+## Installation (test builds)
+
+1. Download `karoo-workout-plus-debug.apk` from the [releases page](../../releases)
+   (pre-releases are the Karoo 2 test builds), or build it, see below.
+2. Enable Developer Options + USB debugging on the Karoo
+   ([Hammerhead guide](https://support.hammerhead.io/hc/en-us/articles/30696553134363)).
+3. Install and allow the overlay:
+   ```sh
+   adb install -r karoo-workout-plus-debug.apk
+   adb shell appops set com.angkyria.karooworkout SYSTEM_ALERT_WINDOW allow
+   ```
+   (or open **Workout+** on the Karoo and tap **Grant** for *draw over other apps*).
+
+Turn on **Demo mode** in the settings to see the layout without a ride or trainer.
+Test builds are debug-signed; switching to a future release-signed build needs an
+uninstall first.
+
+## Building
+
+Requires JDK 17 and the Android SDK (platform 34). `karoo-ext` resolves via JitPack.
+
+```sh
+./gradlew assembleDebug        # app/build/outputs/apk/debug/karoo-workout-plus-debug.apk
+./gradlew testDebugUnitTest    # engine, stream parsing, page takeover, formatting
+```
+
+Release builds are signed with a local `keystore.properties` (see
+`app/build.gradle.kts`; not committed). Tag `vX.Y.Z` to have CI publish a
+release (`.github/workflows/release.yml`).
+
+## How it works
+
+- Workout data comes from the karoo-ext workout streams: interval count and
+  index, interval / workout time remaining, primary and secondary target (with
+  and without output), and the per-kind power / HR / cadence target streams
+  (which tell target kinds apart, carry the workout scale, and keep the target
+  available without a sensor).
+- karoo-ext exposes the *running* workout only — not the interval list — so the
+  interval graph is built as you ride; time is counted from the interval
+  countdown itself, so pauses never count.
+- `ActiveRidePage` reports the visible ride page. When a ride starts with a
+  workout, the Karoo 2 jumps to its workout page without reporting it — Workout+
+  covers it straight away.
+- The overlay is a `TYPE_APPLICATION_OVERLAY` window hosted by the extension's
+  foreground service (the Ki2 / Climber+ pattern), drawn on a plain `Canvas` and
+  repainted only when a visible digit changes — Karoo 2 battery matters. It
+  leaves the ride app's header (ride time, battery, clock) visible.
+
+### Limitations
+
+- karoo-ext has no workout controls: skip / rewind interval and the workout
+  scale stay on the Karoo's own controls (Workout+ shows their effect). The pause
+  button pauses the ride.
+- Upcoming intervals are unknown until ridden (hatched in the graph).
+- The layout shows while a ride is recording or paused, not before the start.
+- Workout stream units and enum codes are undocumented; the settings screen has a
+  **diagnostics** panel showing exactly what your Karoo streams.
+
+## Credits
+
+- [karoo-ext](https://github.com/hammerheadnav/karoo-ext) by Hammerhead (Apache-2.0)
+- [Climber+](https://github.com/hazzus/karoo-climber-plus) by hazzus (Apache-2.0) —
+  project structure and overlay window pattern
+- Overlay window pattern originally from [Ki2](https://github.com/valterc/ki2) by valterc
+- Glyphs from [Material Symbols](https://github.com/google/material-design-icons) (Apache-2.0)
+
+## Disclaimer
+
+Not affiliated with, endorsed by, or supported by Hammerhead or SRAM. Use at your
+own risk; keep your eyes on the road.
+
+## License
+
+[Apache License 2.0](LICENSE)

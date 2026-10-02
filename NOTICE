@@ -1,0 +1,12 @@
+Workout+
+Licensed under the Apache License, Version 2.0.
+
+This product includes code adapted from:
+
+- Climber+ (https://github.com/hazzus/karoo-climber-plus), Apache License 2.0:
+  overlay window controller, hardware-key passthrough and project layout.
+- karoo-ext (https://github.com/hammerheadnav/karoo-ext), Copyright SRAM LLC,
+  Apache License 2.0.
+- Material Symbols (https://github.com/google/material-design-icons),
+  Copyright Google LLC, Apache License 2.0: bolt, favorite, sync and
+  fitness_center glyph paths.

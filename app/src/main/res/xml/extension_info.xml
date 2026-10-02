@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Overlay extension. The one data type marks the ride page Workout+ takes over. -->
+<ExtensionInfo
+    displayName="@string/extension_name"
+    icon="@drawable/ic_workout"
+    id="karoo-workout">
+    <DataType
+        description="@string/field_workout_page_description"
+        displayName="@string/field_workout_page"
+        graphical="true"
+        icon="@drawable/ic_workout"
+        typeId="workout-page" />
+</ExtensionInfo>
