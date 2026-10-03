@@ -1,11 +1,13 @@
 # Workout+
 
+[![Release](https://img.shields.io/github/v/release/angkyria/karoo-workout-plus)](https://github.com/angkyria/karoo-workout-plus/releases/latest)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Build](https://github.com/angkyria/karoo-workout-plus/actions/workflows/build.yml/badge.svg)](https://github.com/angkyria/karoo-workout-plus/actions/workflows/build.yml)
 ![Karoo 2](https://img.shields.io/badge/Karoo%202-supported-brightgreen)
 ![Karoo 3](https://img.shields.io/badge/Karoo%203-untested-lightgrey)
 
-**Website: [angkyria.github.io/karoo-workout-plus](https://angkyria.github.io/karoo-workout-plus/)**
+**Website: [angkyria.github.io/karoo-workout-plus](https://angkyria.github.io/karoo-workout-plus/)**\
+**Download: [Workout+ 1.0.0](https://github.com/angkyria/karoo-workout-plus/releases/latest)** (`karoo-workout-plus.apk`)
 
 The new Karoo OS workout layout, as a free, open-source extension for the
 **Hammerhead Karoo 2**. The Karoo 3 got a purple workout drawer — target bar,
@@ -86,9 +88,8 @@ to any page of your own.
 
 ## Installation
 
-1. Download the APK from the [releases page](../../releases), or the latest
-   build of any branch from its [Build run](../../actions/workflows/build.yml)
-   (artifact `karoo-workout-plus-debug`), or build it, see below.
+1. Download `karoo-workout-plus.apk` from the
+   [latest release](https://github.com/angkyria/karoo-workout-plus/releases/latest) (1.0.0).
 2. Enable Developer Options + USB debugging on the Karoo
    ([Hammerhead guide](https://support.hammerhead.io/hc/en-us/articles/30696553134363)).
 3. Install and allow the overlay:
@@ -98,9 +99,24 @@ to any page of your own.
    ```
    (or open **Workout+** on the Karoo and tap **Grant** for *draw over other apps*).
 
+Coming from a 0.1.0 test build? Those were debug-signed: remove it first with
+`adb uninstall com.angkyria.karooworkout` (this resets the Workout+ settings).
+Later releases install over 1.0.0 with `adb install -r`.
+
 Turn on **Demo mode** in the settings to see the layout without a ride or trainer.
-An APK signed with another key (the earlier debug test builds, or a CI build over
-your own) installs only after `adb uninstall com.angkyria.karooworkout`.
+
+Every push also builds a debug APK, attached to its
+[Build run](../../actions/workflows/build.yml) as `karoo-workout-plus-debug`. It's
+signed with a throwaway debug key, so it only installs after an uninstall.
+
+## Releases
+
+**1.0.0** — the first release, signed, past testing on a Karoo 2: the workout
+page with interval and workout in one block, readable CORE row and data fields
+(each field can be set to None), your power straight from the sensor when the
+workout data has none, and no pause button (the extension API can only pause the
+whole ride). Full notes on the
+[release page](https://github.com/angkyria/karoo-workout-plus/releases/tag/v1.0.0).
 
 ## Building
 
@@ -117,9 +133,10 @@ attaches the debug APK and the rendered layouts to the run; `pages.yml`
 publishes the [website](https://angkyria.github.io/karoo-workout-plus/) from
 `site/` with those renders on every push to `main`.
 
-Release builds are signed with a local `keystore.properties` (see
-`app/build.gradle.kts`; not committed). Tag `vX.Y.Z` to have CI publish a
-release (`.github/workflows/release.yml`).
+Releases are signed in CI with the key in the repo's `KEYSTORE_*` secrets (locally:
+a `keystore.properties`, see `app/build.gradle.kts`; not committed). To release,
+raise `versionName` in `app/build.gradle.kts`, then run **Actions → Release → Run
+workflow** on `main` (it tags `v<versionName>` itself), or push the tag `vX.Y.Z`.
 
 ## How it works
 
