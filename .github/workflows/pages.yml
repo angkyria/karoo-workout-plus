@@ -1,7 +1,8 @@
 name: Website
 
 # The project site (site/) plus the layouts RenderTest draws from the real overlay
-# code, published to the gh-pages branch on every push to main (or by hand).
+# code, deployed straight to GitHub Pages on every push to main (or by hand). No
+# branch holds the site: Settings → Pages → Source must be "GitHub Actions".
 
 on:
   push:
@@ -9,14 +10,16 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
 concurrency:
-  group: website
-  cancel-in-progress: true
+  group: pages
+  cancel-in-progress: false
 
 jobs:
-  site:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,16 +46,17 @@ jobs:
           mkdir -p _site/img
           cp -R site/. _site/
           cp app/build/screenshots/*.png _site/img/
-          touch _site/.nojekyll
 
-      - name: Publish to gh-pages
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cd _site
-          git init -q -b gh-pages
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -q -m "Site from ${GITHUB_SHA::7}"
-          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

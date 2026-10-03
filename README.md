@@ -19,7 +19,7 @@ No system modification.
 
 | The workout page | Two fields removed | The Karoo 2 workout page it covers |
 |---|---|---|
-| ![](https://raw.githubusercontent.com/angkyria/karoo-workout-plus/gh-pages/img/workout-page.png) | ![](https://raw.githubusercontent.com/angkyria/karoo-workout-plus/gh-pages/img/workout-page-two-fields.png) | ![](docs/img/native-k2-workout-page.png) |
+| ![](https://angkyria.github.io/karoo-workout-plus/img/workout-page.png) | ![](https://angkyria.github.io/karoo-workout-plus/img/workout-page-two-fields.png) | ![](docs/img/native-k2-workout-page.png) |
 
 The Workout+ pictures are drawn by the app's own drawing code on every push to
 `main` (`RenderTest`), at the Karoo 2's 480 × 800 with its font. More layouts —

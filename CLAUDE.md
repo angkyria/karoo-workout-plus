@@ -29,8 +29,8 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
   (needs the KEYSTORE_* secrets), or run that workflow by hand on main: it releases
   `v<versionName>` and creates the tag (cloud sessions can't push tags)
 - CI:         `build.yml` on every branch push (tests incl. `RenderTest`, debug APK +
-  screenshots as artifacts); `pages.yml` on main → `site/` + the renders to the
-  `gh-pages` branch. `RenderTest` draws the real `WorkoutOverlayView` (Robolectric,
+  screenshots as artifacts); `pages.yml` on main → `site/` + the renders deployed
+  straight to GitHub Pages (Source "GitHub Actions", no site branch). `RenderTest` draws the real `WorkoutOverlayView` (Robolectric,
   native graphics) to `app/build/screenshots`; CI puts IBM Plex Sans Condensed at
   `/system/fonts` so the renders use the Karoo's font. Prefer checking layouts there.
 
