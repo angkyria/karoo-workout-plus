@@ -485,11 +485,13 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         canvas.drawRect(tmp, fillPaint)
 
         val text = Format.output(t)
-        textPaint.textSize = bar.height() * 0.66f
+        // a tall bar (fields removed) must not grow the box over the track it slides on
+        val boxH = min(bar.height(), width * 0.27f)
+        textPaint.textSize = boxH * 0.66f
         val arrowW = if (hasArrow(t.status)) textPaint.textSize * 0.5f else 0f
         val gap = if (arrowW > 0) textPaint.textSize * 0.2f else 0f
         val contentW = textPaint.measureText(text) + arrowW + gap
-        val boxW = max(bar.width() / 3f, contentW + bar.height() * 0.5f)
+        val boxW = max(bar.width() / 3f, contentW + boxH * 0.5f)
         val cx = (t.output?.let { xOf(it) } ?: bar.centerX())
             .coerceIn(bar.left + boxW / 2, bar.right - boxW / 2)
         tmp.set(cx - boxW / 2, bar.top, cx + boxW / 2, bar.bottom)
