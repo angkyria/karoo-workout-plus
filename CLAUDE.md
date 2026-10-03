@@ -26,7 +26,8 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
 - Install:    `adb install -r app/build/outputs/apk/debug/karoo-workout-plus-debug.apk`
   then `adb shell appops set com.angkyria.karooworkout SYSTEM_ALERT_WINDOW allow`
 - Release:    tag `v<versionName>` (plain vX.Y.Z) → `.github/workflows/release.yml`
-  (needs the KEYSTORE_* secrets)
+  (needs the KEYSTORE_* secrets), or run that workflow by hand on main: it releases
+  `v<versionName>` and creates the tag (cloud sessions can't push tags)
 - CI:         `build.yml` on every branch push (tests incl. `RenderTest`, debug APK +
   screenshots as artifacts); `pages.yml` on main → `site/` + the renders to the
   `gh-pages` branch. `RenderTest` draws the real `WorkoutOverlayView` (Robolectric,

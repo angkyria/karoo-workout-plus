@@ -3,6 +3,8 @@ name: Release
 # Tag-push release: `git tag v0.1.0 && git push origin v0.1.0` runs the tests,
 # builds the signed APK and attaches it to a GitHub release. Only plain vX.Y.Z
 # tags trigger it — test pre-releases (e.g. v0.1.0-k2test.1) are published by hand.
+# Or run it by hand on main (Actions tab, "Run workflow"): it releases
+# v<versionName> and creates that tag itself.
 #
 # Required repo secrets:
 #   KEYSTORE_BASE64   — `base64 -i <your keystore>.jks`
@@ -11,23 +13,32 @@ name: Release
 on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   release:
+    # by hand only from main
+    if: github.event_name == 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify tag matches Gradle version
+      - name: Release tag from the Gradle version
         run: |
           VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\(.*\)"/\1/p' app/build.gradle.kts)
-          if [ "v$VERSION_NAME" != "$GITHUB_REF_NAME" ]; then
+          TAG="v$VERSION_NAME"
+          if [ "$GITHUB_EVENT_NAME" = push ] && [ "$TAG" != "$GITHUB_REF_NAME" ]; then
             echo "Tag $GITHUB_REF_NAME does not match versionName $VERSION_NAME in app/build.gradle.kts" >&2
             exit 1
           fi
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            echo "$TAG is already released: bump versionName in app/build.gradle.kts first" >&2
+            exit 1
+          fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v4
         with:
@@ -60,5 +71,7 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
           files: app/build/outputs/apk/release/karoo-workout-plus.apk
