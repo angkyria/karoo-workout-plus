@@ -23,6 +23,7 @@ enum class OverlayAnchor { TOP, BOTTOM }
 
 /** Grouping for the field-picker menu. */
 enum class FieldCategory(val label: String) {
+    NONE("No field"),
     WORKOUT("Workout"),
     POWER("Power"),
     HEART_RATE("Heart rate"),
@@ -61,8 +62,9 @@ enum class FieldFormat {
 }
 
 /**
- * Data fields for the 2x2 grid at the bottom of the workout page. Derived fields
- * have no [dataTypeId]; system fields stream from the Karoo data type they name.
+ * Data fields for the grid at the bottom of the workout page (four slots). Derived
+ * fields have no [dataTypeId]; system fields stream from the Karoo data type they
+ * name. [NONE] empties a slot: the grid drops it and the page gives the room away.
  * Entry names are persisted in DataStore — never rename existing ones.
  */
 enum class WorkoutField(
@@ -75,6 +77,9 @@ enum class WorkoutField(
     /** A second stream the cell needs, e.g. the heat index that colors a temperature. */
     val extraDataTypeId: String? = null,
 ) {
+    // an empty slot (listed first in the picker)
+    NONE("NONE", FieldCategory.NONE, FieldFormat.DERIVED),
+
     // workout engine
     WORKOUT_IN_RANGE("IN RANGE %", FieldCategory.WORKOUT, FieldFormat.DERIVED),
     INTERVAL_IN_RANGE("INTERVAL IN RANGE %", FieldCategory.WORKOUT, FieldFormat.DERIVED),
@@ -161,7 +166,7 @@ data class Settings(
     val opacityPercent: Int = 100,
     /** Feed a synthetic workout (on-desk testing, no ride or trainer needed). */
     val demoMode: Boolean = false,
-    /** The four data fields at the bottom of the workout page. */
+    /** The four data-field slots at the bottom of the workout page ([WorkoutField.NONE] = empty). */
     val pageFields: List<WorkoutField> = listOf(
         WorkoutField.POWER_3S,
         WorkoutField.HEART_RATE,

@@ -20,8 +20,8 @@ android {
         applicationId = "com.angkyria.karooworkout"
         minSdk = 26 // Karoo 2 (Android 8)
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "1.0.0"
     }
 
     signingConfigs {
@@ -67,6 +67,11 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // RenderTest draws the real overlay view (Robolectric, native graphics)
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
@@ -86,4 +91,6 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.2")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("androidx.test:core:1.6.1")
 }

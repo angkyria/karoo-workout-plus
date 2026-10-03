@@ -9,8 +9,8 @@ Karoo 3 workout-drawer layout to the **Karoo 2** (primary target; Karoo 3 untest
 and **replaces the ride app's workout page** with it while a workout runs (other
 pages stay usable; "cover every page" is a setting). Single Android app module
 (`app/`), Kotlin, minSdk 26 (Karoo 2 runs Android 8.1 / API 27, 480x800, 300 dpi).
-Modeled on Climber+ (github.com/hazzus/karoo-climber-plus). Status: **testing on
-Karoo 2** (debug-signed pre-releases).
+Modeled on Climber+ (github.com/hazzus/karoo-climber-plus). Status: **1.0, in use
+on a Karoo 2** (past testing). Website: angkyria.github.io/karoo-workout-plus.
 
 ## Commands
 
@@ -25,8 +25,13 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
 - Single test: `./gradlew testDebugUnitTest --tests "com.angkyria.karooworkout.WorkoutEngineTest"`
 - Install:    `adb install -r app/build/outputs/apk/debug/karoo-workout-plus-debug.apk`
   then `adb shell appops set com.angkyria.karooworkout SYSTEM_ALERT_WINDOW allow`
-- Release:    tag `v<versionName>` (plain vX.Y.Z) → `.github/workflows/release.yml`;
-  Karoo 2 test builds go out by hand as GitHub pre-releases with the debug APK
+- Release:    tag `v<versionName>` (plain vX.Y.Z) → `.github/workflows/release.yml`
+  (needs the KEYSTORE_* secrets)
+- CI:         `build.yml` on every branch push (tests incl. `RenderTest`, debug APK +
+  screenshots as artifacts); `pages.yml` on main → `site/` + the renders to the
+  `gh-pages` branch. `RenderTest` draws the real `WorkoutOverlayView` (Robolectric,
+  native graphics) to `app/build/screenshots`; CI puts IBM Plex Sans Condensed at
+  `/system/fonts` so the renders use the Karoo's font. Prefer checking layouts there.
 
 ## Device workflow
 
@@ -67,9 +72,16 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   taller of status bar / 32 dp ride header), `WorkoutOverlayView` (all drawing and
   gestures: top handle tap, fling or slow drag down = minimize, horizontal swipe =
   ride page change), `WorkoutColors` (native palette sampled from Hammerhead's
-  drawer), `Format`. The CORE row and the 2x2 fields share `drawCell` (label top
-  left, value bottom right, shrunk only to fit) and get the most page height — the
-  rider couldn't read them at the first sizes.
+  drawer), `Format`. The page stacks PRIMARY / SECONDARY / TIMING / CORE_HEAT /
+  FIELDS; TIMING is interval + workout in one block (the rider wanted them as one):
+  header `INTERVAL n OF m` + workout time left, countdown, interval bar, then the
+  graph (page) or a thin workout bar (drawer). The CORE row and the fields share
+  `drawCell` (label top left, value bottom right, shrunk only to fit) and get the
+  most height — the rider couldn't read them at the first sizes. Header text is
+  capped by screen width and shrunk to fit its row: section heights change with the
+  optional parts, and uncapped headers collided.
+- Data fields: four slots; `WorkoutField.NONE` empties one. The grid shows the rest
+  two a row (an odd one spans the row) and drops its section when all are NONE.
 - **`WorkoutPageField`** — the "Workout+ page" graphical data type; a page marker
   (and a countdown under the overlay).
 - **`data/CoreHeat`** — CORE sensor + CORE Heat extension (`TYPE_EXT::coreheat::*`,

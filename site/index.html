@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workout+ for the Karoo 2</title>
+<meta name="description" content="A free, open-source Karoo extension that brings the Karoo 3 workout layout to the Karoo 2: target bar, big interval countdown, interval graph and the data you choose.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23671890'/%3E%3Cpath d='M17.5 4 8 18h7l-1.5 10L23 14h-7z' fill='%234BDDA3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --plum: #671890;
+    --plum-deep: #45145D;
+    --lilac: #EFC7FF;
+    --lilac-dim: #C9A3DC;
+    --paper: #FBF7FD;
+    --ink: #2A0F3A;
+    --ink-soft: #5B4568;
+    --green: #4BDDA3;
+    --blue: #3D9BF0;
+    --red: #EE4D5A;
+    --amber: #FFC94A;
+    --condensed: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
+    --sans: "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 17px/1.6 var(--sans); }
+  a { color: inherit; text-underline-offset: 3px; }
+  :focus-visible { outline: 3px solid var(--green); outline-offset: 3px; border-radius: 4px; }
+  h1, h2, h3 { font-family: var(--condensed); line-height: 1.1; margin: 0; }
+  h2 { font-size: clamp(30px, 4vw, 40px); font-weight: 600; letter-spacing: -0.01em; }
+  h3 { font-size: 22px; font-weight: 600; }
+  p { margin: 0; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+  /* hero: the workout drawer's own purple */
+  .hero { background: var(--plum); color: var(--lilac); overflow: hidden; }
+  .hero .wrap { display: grid; grid-template-columns: 1fr auto; gap: 56px; align-items: center; padding-top: 64px; padding-bottom: 64px; }
+  .wordmark { font-family: var(--condensed); font-weight: 700; color: #fff; font-size: clamp(64px, 11vw, 132px); line-height: 0.9; letter-spacing: -0.035em; }
+  .wordmark span { color: var(--green); }
+  .tagline { font-family: var(--condensed); font-weight: 500; color: #fff; font-size: clamp(24px, 3vw, 32px); line-height: 1.2; margin-top: 20px; max-width: 22ch; }
+  .lede { margin-top: 20px; max-width: 46ch; color: var(--lilac); }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+  .button { display: inline-block; font: 600 17px/1 var(--sans); text-decoration: none; padding: 15px 22px; border-radius: 10px; }
+  .button.primary { background: var(--green); color: var(--ink); }
+  .button.secondary { color: #fff; box-shadow: inset 0 0 0 2px var(--lilac-dim); }
+  .button:hover { filter: brightness(1.06); }
+  .note { margin-top: 14px; font-size: 14px; color: var(--lilac-dim); }
+
+  /* the device: a Karoo 2 sized screen (480 x 800) in its case */
+  .device { width: min(330px, 78vw); padding: 22px 16px 34px; border-radius: 34px; background: #232227;
+    box-shadow: 0 30px 60px rgba(25, 4, 38, 0.45), inset 0 0 0 2px #3a3940; position: relative; }
+  .device::before, .device::after { content: ""; position: absolute; width: 5px; height: 46px; background: #3a3940; border-radius: 3px; top: 70px; }
+  .device::before { left: -5px; }
+  .device::after { right: -5px; }
+  .screen { container-type: inline-size; aspect-ratio: 480 / 800; background: #000; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+  .ride-header { height: 7.5%; flex: none; background: #3f3f3f; color: #fff; display: flex; justify-content: space-between; align-items: center;
+    padding: 0 1.6cqw; font: 500 10.6cqw/1 var(--condensed); }
+  .ride-page { flex: 1; position: relative; }
+  .ride-page img { display: block; width: 100%; }
+  .native { position: absolute; inset: 0; display: grid; grid-template-rows: 1fr 1fr; gap: 1px; background: #262626; }
+  .native div { background: #000; color: #fff; padding: 3cqw 4cqw; font: 500 18cqw/1 var(--condensed); display: flex; flex-direction: column; justify-content: space-between; }
+  .native small { font: 500 5cqw/1 var(--sans); color: #9a9a9a; }
+  .ride-page .drawer { position: absolute; left: 0; right: 0; bottom: 0; }
+  .ride-page .chip { position: absolute; left: 50%; bottom: 3.2%; transform: translateX(-50%); width: auto; height: 8.1%; }
+
+  section { padding: 88px 0; }
+  .intro { max-width: 60ch; margin-top: 16px; color: var(--ink-soft); }
+
+  /* view switcher */
+  .views { display: grid; grid-template-columns: minmax(240px, 340px) auto; gap: 56px; align-items: start; margin-top: 40px; }
+  .view-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .view-list button { width: 100%; text-align: left; background: none; border: 0; border-radius: 10px; padding: 12px 16px; cursor: pointer; color: var(--ink); font: inherit; }
+  .view-list button strong { display: block; font: 600 19px/1.25 var(--condensed); }
+  .view-list button span { display: block; font-size: 15px; color: var(--ink-soft); margin-top: 2px; }
+  .view-list button[aria-pressed="true"] { background: var(--plum); color: #fff; }
+  .view-list button[aria-pressed="true"] span { color: var(--lilac); }
+  .view-list button:not([aria-pressed="true"]):hover { background: #F0E4F6; }
+  .views .device { justify-self: center; }
+
+  /* reading the target */
+  .reading { background: var(--plum-deep); color: var(--lilac); }
+  .reading h2 { color: #fff; }
+  .reading .intro { color: var(--lilac); }
+  .states { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; margin-top: 44px; }
+  .state .box { display: inline-flex; align-items: center; gap: 10px; border-radius: 10px; padding: 10px 18px; font: 600 40px/1 var(--condensed); color: #fff; }
+  .state .box svg { width: 22px; height: 22px; }
+  .state p { margin-top: 14px; max-width: 30ch; }
+  .in-range .box { background: var(--green); color: var(--ink); }
+  .under .box { background: var(--blue); }
+  .over .box { background: var(--red); }
+
+  /* setup: a real sequence */
+  .steps { list-style: none; margin: 40px 0 0; padding: 0; display: grid; gap: 28px; counter-reset: step; max-width: 760px; }
+  .steps li { counter-increment: step; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 16px; }
+  .steps li::before { content: counter(step); font: 700 28px/44px var(--condensed); color: #fff; background: var(--plum); border-radius: 50%; width: 44px; height: 44px; text-align: center; }
+  .steps h3 { margin-top: 8px; }
+  .steps p { margin-top: 6px; color: var(--ink-soft); }
+  pre { margin: 12px 0 0; padding: 14px 16px; background: #fff; border-radius: 10px; box-shadow: inset 0 0 0 1px #E6D6EE; overflow-x: auto; font: 400 14.5px/1.6 var(--mono); color: var(--ink); }
+
+  .facts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 36px 56px; margin-top: 40px; }
+  .facts p { margin-top: 8px; color: var(--ink-soft); max-width: 48ch; }
+
+  footer { background: var(--ink); color: var(--lilac-dim); padding: 48px 0; font-size: 15px; }
+  footer .wrap { display: grid; gap: 10px; }
+  footer strong { color: #fff; font: 600 20px/1 var(--condensed); }
+
+  @media (max-width: 860px) {
+    .hero .wrap, .views { grid-template-columns: 1fr; }
+    /* the layouts section right below shows the same screen, and lets you switch it */
+    .hero .device { display: none; }
+    .views .device { grid-row: 1; }
+    .states, .facts { grid-template-columns: 1fr; }
+    section { padding: 64px 0; }
+  }
+  @media (max-width: 480px) {
+    .wrap { padding: 0 16px; }
+    .button { width: 100%; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <h1 class="wordmark">Workout<span>+</span></h1>
+      <p class="tagline">The Karoo 3 workout layout, on your Karoo 2.</p>
+      <p class="lede">A free extension that takes over the Karoo 2's workout page while a workout runs: the target bar, a big interval countdown with the interval graph, your CORE heat data and the fields you choose. Your other ride pages stay as they are.</p>
+      <div class="actions">
+        <a class="button primary" href="https://github.com/angkyria/karoo-workout-plus/releases">Download the APK</a>
+        <a class="button secondary" href="https://github.com/angkyria/karoo-workout-plus">View the source</a>
+      </div>
+      <p class="note">Open source, Apache 2.0. Built on Hammerhead's official extension API, no system changes.</p>
+    </div>
+    <div class="device" aria-hidden="true">
+      <div class="screen">
+        <div class="ride-header"><span>0:54:28</span><span>9:01</span></div>
+        <div class="ride-page"><img src="img/workout-page.png" alt=""></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section id="layouts">
+    <div class="wrap">
+      <h2>What you see on the bike</h2>
+      <p class="intro">Every picture here is drawn by the extension's own code on each build, at the Karoo 2's 480 × 800 pixels, using the Karoo's own font.</p>
+      <div class="views">
+        <ul class="view-list" aria-label="Layouts">
+          <li><button type="button" aria-pressed="true" data-img="workout-page.png">
+            <strong>The workout page</strong>
+            <span>Target, interval and workout together, the CORE row and four data fields.</span></button></li>
+          <li><button type="button" aria-pressed="false" data-img="workout-page-cadence-paused.png">
+            <strong>A cadence target, ride paused</strong>
+            <span>Secondary targets get their own row; the workout scale shows when it isn't 100 %.</span></button></li>
+          <li><button type="button" aria-pressed="false" data-img="workout-page-two-fields.png">
+            <strong>Two fields</strong>
+            <span>Set a field to None and it's gone: the rest of the page grows.</span></button></li>
+          <li><button type="button" aria-pressed="false" data-img="workout-page-no-fields.png">
+            <strong>No fields at all</strong>
+            <span>Just the target and the clock, as big as they get.</span></button></li>
+          <li><button type="button" aria-pressed="false" data-img="workout-page-numeric.png">
+            <strong>Numeric target</strong>
+            <span>Tap the target to switch between the bar and a plain number.</span></button></li>
+          <li><button type="button" aria-pressed="false" data-img="workout-done.png">
+            <strong>Workout done</strong>
+            <span>Your time in range for the whole workout.</span></button></li>
+          <li><button type="button" aria-pressed="false" data-img="drawer.png" data-kind="drawer">
+            <strong>The drawer</strong>
+            <span>Over any other ride page, if you prefer it by hand.</span></button></li>
+          <li><button type="button" aria-pressed="false" data-img="chip.png" data-kind="chip">
+            <strong>The chip</strong>
+            <span>Output and countdown on your other pages. Tap it to open the layout.</span></button></li>
+        </ul>
+        <div class="device">
+          <div class="screen">
+            <div class="ride-header"><span>0:54:28</span><span>9:01</span></div>
+            <div class="ride-page" id="view"><img src="img/workout-page.png" alt="The Workout+ workout page"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="reading">
+    <div class="wrap">
+      <h2>Reading the target</h2>
+      <p class="intro">The same colors as the Karoo 3. The box slides along the bar: the middle third is your target range. Single-value targets get the Karoo's own band, ±5 % for power and ±7.5 % for heart rate.</p>
+      <div class="states">
+        <div class="state in-range"><div class="box">248</div><p>In range. Hold it there.</p></div>
+        <div class="state under"><div class="box"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3 19 17H1z" fill="#fff"/></svg>231</div><p>Below the range: push a little harder.</p></div>
+        <div class="state over"><div class="box"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 17 1 3h18z" fill="#fff"/></svg>266</div><p>Above the range: ease off.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <h2>Set it up</h2>
+      <p class="intro">You need a computer with <a href="https://developer.android.com/tools/releases/platform-tools">adb</a> and USB debugging turned on on the Karoo (<a href="https://support.hammerhead.io/hc/en-us/articles/30696553134363">Hammerhead's guide</a>).</p>
+      <ol class="steps">
+        <li><div>
+          <h3>Download the APK</h3>
+          <p>Get <code>karoo-workout-plus.apk</code> from the <a href="https://github.com/angkyria/karoo-workout-plus/releases">releases page</a>.</p>
+        </div></li>
+        <li><div>
+          <h3>Install it and let it draw over the ride app</h3>
+          <pre>adb install -r karoo-workout-plus.apk
+adb shell appops set com.angkyria.karooworkout SYSTEM_ALERT_WINDOW allow</pre>
+          <p>Or open Workout+ on the Karoo and tap Grant.</p>
+        </div></li>
+        <li><div>
+          <h3>Ride a workout</h3>
+          <p>Start a ride with a workout loaded. Workout+ covers the workout page by itself. To try it at your desk first, turn on demo mode in its settings.</p>
+        </div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="details" style="padding-top: 0">
+    <div class="wrap">
+      <h2>Good to know</h2>
+      <div class="facts">
+        <div><h3>Your buttons stay yours</h3><p>Workout+ never takes the hardware buttons. Page changes, lap and back work as always, and a swipe changes the page underneath.</p></div>
+        <div><h3>Choose your fields</h3><p>Four slots: power, heart rate, cadence, lap and time data, core temperature and more. Set any of them to None to give the rest more room.</p></div>
+        <div><h3>Power from your sensor</h3><p>Your power, heart rate or cadence come from the Karoo's workout data, or straight from the sensor when the workout data has none.</p></div>
+        <div><h3>CORE heat</h3><p>With a <a href="https://corebodytemp.com">CORE</a> sensor, core temperature, heat strain and skin temperature show in the heat-zone colors. The heat strain comes from the <a href="https://github.com/angkyria/karoo-core">CORE Heat</a> extension.</p></div>
+        <div><h3>Pause and skip stay on the Karoo</h3><p>The extension API can't pause or skip a workout, so those stay on the Karoo's own controls. Workout+ shows the result, and PAUSED while the ride is paused.</p></div>
+        <div><h3>Intervals as you ride them</h3><p>The Karoo shares the running interval only, so the graph fills in as you ride. What's still to come is hatched.</p></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <strong>Workout+</strong>
+    <p>Apache License 2.0. Built with Hammerhead's <a href="https://github.com/hammerheadnav/karoo-ext">karoo-ext</a>, in the style of <a href="https://github.com/hazzus/karoo-climber-plus">Climber+</a>.</p>
+    <p>Not affiliated with, endorsed by or supported by Hammerhead or SRAM. Keep your eyes on the road.</p>
+  </div>
+</footer>
+
+<script>
+  // swap the device screen to the chosen layout
+  const view = document.getElementById('view');
+  const native = '<div class="native"><div><small>Speed</small>31.2</div><div><small>Distance</small>42.7</div></div>';
+  document.querySelectorAll('.view-list button').forEach((button) => {
+    button.addEventListener('click', () => {
+      document.querySelectorAll('.view-list button').forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+      const img = `img/${button.dataset.img}`;
+      const alt = button.querySelector('strong').textContent;
+      if (button.dataset.kind === 'drawer') {
+        view.innerHTML = `${native}<img class="drawer" src="${img}" alt="${alt}">`;
+      } else if (button.dataset.kind === 'chip') {
+        view.innerHTML = `${native}<img class="chip" src="${img}" alt="${alt}">`;
+      } else {
+        view.innerHTML = `<img src="${img}" alt="${alt}">`;
+      }
+    });
+  });
+</script>
+</body>
+</html>

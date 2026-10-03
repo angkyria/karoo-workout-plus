@@ -180,7 +180,7 @@ private fun SettingsScreen(
         )
 
         // ---- Page fields ----
-        SectionTitle("Workout page fields")
+        SectionTitle("Workout page fields (\"None\" removes one)")
         settings.pageFields.forEachIndexed { index, field ->
             FieldPickerRow("Field ${index + 1}", field) { chosen ->
                 update { s -> s.copy(pageFields = s.pageFields.toMutableList().also { it[index] = chosen }) }

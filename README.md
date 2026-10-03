@@ -1,15 +1,11 @@
 # Workout+
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-![Status](https://img.shields.io/badge/status-testing-orange)
-![Karoo 2](https://img.shields.io/badge/Karoo%202-in%20testing-orange)
+[![Build](https://github.com/angkyria/karoo-workout-plus/actions/workflows/build.yml/badge.svg)](https://github.com/angkyria/karoo-workout-plus/actions/workflows/build.yml)
+![Karoo 2](https://img.shields.io/badge/Karoo%202-supported-brightgreen)
 ![Karoo 3](https://img.shields.io/badge/Karoo%203-untested-lightgrey)
 
-> [!WARNING]
-> **Testing mode — Karoo 2.** Workout+ is in active testing on a Karoo 2
-> (ride app 4.197). It runs on real rides, but expect rough edges, and builds
-> are debug-signed test builds. Karoo 3 should work but hasn't been tried yet.
-> Issues and ride reports are welcome.
+**Website: [angkyria.github.io/karoo-workout-plus](https://angkyria.github.io/karoo-workout-plus/)**
 
 The new Karoo OS workout layout, as a free, open-source extension for the
 **Hammerhead Karoo 2**. The Karoo 3 got a purple workout drawer — target bar,
@@ -21,9 +17,12 @@ Built on the official [karoo-ext](https://github.com/hammerheadnav/karoo-ext)
 extension API, in the style of [Climber+](https://github.com/hazzus/karoo-climber-plus).
 No system modification.
 
-| Workout+ on a real ride (Karoo 2) | Chip (other pages) | The Karoo 2 workout page it covers |
+| The workout page | Two fields removed | The Karoo 2 workout page it covers |
 |---|---|---|
-| ![](docs/img/workout-page.png) | ![](docs/img/chip.png) | ![](docs/img/native-k2-workout-page.png) |
+| ![](docs/img/workout-page.png) | ![](docs/img/workout-page-two-fields.png) | ![](docs/img/native-k2-workout-page.png) |
+
+The Workout+ pictures are drawn by the app's own drawing code on every build
+(`RenderTest`), at the Karoo 2's 480 × 800 with its font.
 
 ## What you get
 
@@ -34,19 +33,22 @@ No system modification.
 - **Ramps** (warm-ups, ramp tests) hold you to the ramp's *current* value, not
   the whole 137–187 W span, and are drawn as slopes in the graph.
 - **Secondary target** (power / HR / cadence) as a compact row.
-- **Interval**: `3 OF 9`, a huge countdown (amber in the last 5 s), progress bar,
-  and `PAUSED` while the ride is paused.
-- **Workout**: time left, workout scale when it isn't 100 %, progress bar, and an
-  **interval graph** — intervals already ridden at their real length, colored by
-  your power / HR zones, the current one outlined, the rest of the workout hatched.
+- **Interval and workout in one block**: `INTERVAL 3 OF 9` with the workout's
+  time left (and its scale when it isn't 100 %) on top, a huge interval
+  countdown (amber in the last 5 s, `PAUSED` beside it while the ride is
+  paused), the interval's progress bar and the **interval graph**: intervals
+  already ridden at their real length, colored by your power / HR zones, the
+  current one outlined, the rest of the workout hatched.
 - **Core heat** with a [CORE](https://corebodytemp.com) sensor: a row with core
   temperature, the Heat Strain Index and skin temperature, as big as the data
   fields, in CORE's heat-zone colors.
   The index, heat zone, training load and adaptation come from the
   [CORE Heat](https://github.com/angkyria/karoo-core) extension when it's installed.
-- **Four data fields** of your choice (3s power, HR, cadence, NP, TSS, lap
-  power, workout time left, core / skin temperature, heat strain, …) plus
-  Workout+'s own **time in range** for the interval and the workout.
+- **Up to four data fields** of your choice (3s power, HR, cadence, NP, TSS,
+  lap power, workout time left, core / skin temperature, heat strain, …) plus
+  Workout+'s own **time in range** for the interval and the workout. Set a
+  field to **None** to remove it: the rest of the page grows (an odd field out
+  spans the whole row; with no fields the target and the clock get it all).
 
 Ranges follow Karoo OS: single-value targets get the implied band (power ±5 %,
 heart rate ±7.5 %), and in/out of range is judged on the rounded numbers you
@@ -80,22 +82,23 @@ karoo-ext reports (on the Karoo 2 the native workout page is a single
 `TYPE_WORKOUT_ID` element), or by the **Workout+ page** data field you can add
 to any page of your own.
 
-## Installation (test builds)
+## Installation
 
-1. Download `karoo-workout-plus-debug.apk` from the [releases page](../../releases)
-   (pre-releases are the Karoo 2 test builds), or build it, see below.
+1. Download the APK from the [releases page](../../releases), or the latest
+   build of any branch from its [Build run](../../actions/workflows/build.yml)
+   (artifact `karoo-workout-plus-debug`), or build it, see below.
 2. Enable Developer Options + USB debugging on the Karoo
    ([Hammerhead guide](https://support.hammerhead.io/hc/en-us/articles/30696553134363)).
 3. Install and allow the overlay:
    ```sh
-   adb install -r karoo-workout-plus-debug.apk
+   adb install -r karoo-workout-plus.apk
    adb shell appops set com.angkyria.karooworkout SYSTEM_ALERT_WINDOW allow
    ```
    (or open **Workout+** on the Karoo and tap **Grant** for *draw over other apps*).
 
 Turn on **Demo mode** in the settings to see the layout without a ride or trainer.
-Test builds are debug-signed; switching to a future release-signed build needs an
-uninstall first.
+An APK signed with another key (the earlier debug test builds, or a CI build over
+your own) installs only after `adb uninstall com.angkyria.karooworkout`.
 
 ## Building
 
@@ -103,8 +106,14 @@ Requires JDK 17 and the Android SDK (platform 34). `karoo-ext` resolves via JitP
 
 ```sh
 ./gradlew assembleDebug        # app/build/outputs/apk/debug/karoo-workout-plus-debug.apk
-./gradlew testDebugUnitTest    # engine, stream parsing, page takeover, formatting
+./gradlew testDebugUnitTest    # engine, stream parsing, page takeover, formatting,
+                               # and RenderTest: every layout to app/build/screenshots
 ```
+
+CI (GitHub Actions) does the same on every push: `build.yml` runs the tests and
+attaches the debug APK and the rendered layouts to the run; `pages.yml`
+publishes the [website](https://angkyria.github.io/karoo-workout-plus/) from
+`site/` with those renders on every push to `main`.
 
 Release builds are signed with a local `keystore.properties` (see
 `app/build.gradle.kts`; not committed). Tag `vX.Y.Z` to have CI publish a

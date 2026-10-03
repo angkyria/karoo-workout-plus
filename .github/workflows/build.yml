@@ -1,7 +1,7 @@
 name: Build
 
-# Every branch push (or a manual run): unit tests + the debug APK, attached to the
-# run as an artifact. Tags are release.yml's.
+# Every branch push (or a manual run): unit tests, the rendered layouts and the
+# debug APK, attached to the run as artifacts. Tags are release.yml's.
 #
 # The runner makes a fresh debug key each time: a phone with a build signed by
 # another debug key needs `adb uninstall com.angkyria.karooworkout` first.
@@ -24,7 +24,14 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Unit tests
+      # the overlay loads the Karoo's font from /system/fonts: same font in the renders
+      - name: Karoo font
+        run: |
+          sudo mkdir -p /system/fonts
+          sudo curl -fsSL -o /system/fonts/IBMPlexSansCondensed-Medium.otf \
+            https://raw.githubusercontent.com/IBM/plex/master/packages/plex-sans-condensed/fonts/complete/otf/IBMPlexSansCondensed-Medium.otf
+
+      - name: Unit and render tests
         run: ./gradlew testDebugUnitTest
 
       - name: Build debug APK
@@ -35,6 +42,13 @@ jobs:
           name: karoo-workout-plus-debug
           path: app/build/outputs/apk/debug/karoo-workout-plus-debug.apk
           if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: app/build/screenshots/
+          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         if: failure()
