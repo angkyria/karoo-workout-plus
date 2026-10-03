@@ -105,6 +105,33 @@ class WorkoutStreamsTest {
     }
 
     @Test
+    fun readsTheRidersOwnSensorStreamsPerKind() {
+        val live = raw + mapOf(
+            DataType.Type.POWER to mapOf(DataType.Field.POWER to 231.0),
+            DataType.Type.SMOOTHED_3S_AVERAGE_POWER to mapOf(DataType.Field.SMOOTHED_3S_AVERAGE_POWER to 226.0),
+            DataType.Type.HEART_RATE to mapOf(DataType.Field.HEART_RATE to 151.0),
+        )
+        val s = WorkoutStreams.snapshot(live)
+        assertEquals(231.0, s.live.getValue(TargetKind.POWER).instant!!, 1e-9)
+        assertEquals(226.0, s.live.getValue(TargetKind.POWER).smoothed!!, 1e-9)
+        // heart rate has no smoothed stream: the one value serves both
+        assertEquals(151.0, s.live.getValue(TargetKind.HEART_RATE).smoothed!!, 1e-9)
+        assertNull(s.live[TargetKind.CADENCE])
+    }
+
+    @Test
+    fun streamsTheSensorOfEachKindTheWorkoutTargets() {
+        assertEquals(
+            setOf(DataType.Type.SMOOTHED_3S_AVERAGE_POWER, DataType.Type.HEART_RATE),
+            WorkoutStreams.liveStreams(setOf(TargetKind.POWER, TargetKind.HEART_RATE), smoothed = true),
+        )
+        assertEquals(
+            setOf(DataType.Type.POWER),
+            WorkoutStreams.liveStreams(setOf(TargetKind.POWER), smoothed = false),
+        )
+    }
+
+    @Test
     fun noGateMeansNoWorkout() {
         assertFalse(WorkoutStreams.snapshot(emptyMap()).loaded)
         val zero = mapOf(WorkoutStreams.GATE to mapOf(DataType.Field.WORKOUT_STEP_COUNT to 0.0))

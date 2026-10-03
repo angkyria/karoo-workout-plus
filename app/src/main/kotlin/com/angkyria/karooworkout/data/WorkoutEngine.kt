@@ -155,9 +155,12 @@ class WorkoutEngine {
         // Karoo: the primary target is HR or power, the secondary HR, power or cadence
         s.primary?.let { rec.observe(it) }
         val primaryKind = s.primary?.let { resolveKind(it, s.kindValues, exclude = setOf(TargetKind.CADENCE)) }
-        val primary = s.primary?.let { resolve(it, primaryKind ?: TargetKind.UNKNOWN, smoothedOutput, rec.ramp) }
+        val primary = s.primary?.let {
+            resolve(it.withLive(primaryKind, s.live), primaryKind ?: TargetKind.UNKNOWN, smoothedOutput, rec.ramp)
+        }
         val secondary = s.secondary?.let {
-            resolve(it, resolveKind(it, s.kindValues, exclude = setOfNotNull(primaryKind)), smoothedOutput)
+            val kind = resolveKind(it, s.kindValues, exclude = setOfNotNull(primaryKind))
+            resolve(it.withLive(kind, s.live), kind, smoothedOutput)
         }
 
         val delta = tickDelta(index == last, s.stepRemainingMs, nowMs, paused)
@@ -229,6 +232,16 @@ class WorkoutEngine {
             }
             TargetStatus.NO_DATA, null -> Unit
         }
+    }
+
+    /**
+     * Karoo holds its workout output stream in SEARCHING at times (always without the
+     * sensor; unverified with it): take the output from the rider's own sensor stream then.
+     */
+    private fun RawTarget.withLive(kind: TargetKind?, live: Map<TargetKind, LiveOutput>): RawTarget {
+        if (output != null || outputSmoothed != null) return this
+        val sensor = kind?.let { live[it] } ?: return this
+        return copy(output = sensor.instant, outputSmoothed = sensor.smoothed)
     }
 
     /**

@@ -33,15 +33,15 @@ import kotlin.math.min
 /**
  * Canvas-drawn workout overlay in the Karoo OS workout-drawer look, three sizes:
  *  - CHIP: output vs target (colored) + interval countdown
- *  - DRAWER: primary target bar, interval countdown + pause, workout progress
- *  - FULL: the workout page — targets, interval, interval graph and 2x2 data fields;
+ *  - DRAWER: primary target bar, interval countdown, workout progress
+ *  - FULL: the workout page — targets, interval, interval graph, CORE row and 2x2 data fields;
  *    shown by itself over the ride app's workout page (takeover, see [PanelMachine])
  *
  * Gestures: tap chip = open; tap drawer = full page; tap the top handle, or swipe
- * down = minimize to the chip; tap the target = visual/numeric; tap the round
- * button = pause/resume the ride; horizontal swipe on the full page = change ride
- * page underneath. The window never takes key focus, so every hardware button
- * keeps its native ride-app action.
+ * down = minimize to the chip; tap the target = visual/numeric; horizontal swipe
+ * on the full page = change ride page underneath. No pause button: karoo-ext can
+ * only pause the ride, not the workout. The window never takes key focus, so every
+ * hardware button keeps its native ride-app action.
  */
 @SuppressLint("ViewConstructor")
 class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : View(context) {
@@ -60,11 +60,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
     /** Controller hook: a horizontal swipe asks the ride app for the next / previous page. */
     var onPageSwipe: ((next: Boolean) -> Unit)? = null
 
-    /** Controller hook: the round pause/resume button was tapped. */
-    var onPauseToggle: (() -> Unit)? = null
-
     // hit areas, recorded while drawing
-    private val pauseHit = RectF()
     private val targetHit = RectF()
     private val minimizeHit = RectF()
 
@@ -87,7 +83,6 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
                 when {
                     machine.size == Size.CHIP -> resize { machine.expand(settings.pageMode) }
                     minimizeHit.contains(e.x, e.y) -> resize { machine.collapse(settings.pageMode) }
-                    pauseHit.contains(e.x, e.y) -> onPauseToggle?.invoke()
                     targetHit.contains(e.x, e.y) -> {
                         displayOverride =
                             if (display == TargetDisplay.VISUAL) TargetDisplay.NUMERIC else TargetDisplay.VISUAL
@@ -284,7 +279,6 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
 
     override fun onDraw(canvas: Canvas) {
         val s = state ?: return
-        pauseHit.setEmpty()
         targetHit.setEmpty()
         minimizeHit.setEmpty()
         when (machine.size) {
@@ -319,15 +313,16 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         val area = RectF(pad, top, width - pad, height - pad)
         val secondary = s.secondary.takeIf { settings.showSecondary }
         val heat = coreHeat()
+        // the data cells (CORE row, fields) must read at a glance: they get the room
         val sections = buildList {
-            add(Section.PRIMARY to 25f)
-            if (secondary != null) add(Section.SECONDARY to 9f)
-            add(Section.INTERVAL to 25f)
-            add(Section.WORKOUT to 20f)
-            if (heat != null) add(Section.CORE_HEAT to 9f)
-            add(Section.FIELDS to 24f)
+            add(Section.PRIMARY to 22f)
+            if (secondary != null) add(Section.SECONDARY to 8f)
+            add(Section.INTERVAL to 23f)
+            add(Section.WORKOUT to 12f)
+            if (heat != null) add(Section.CORE_HEAT to 13f)
+            add(Section.FIELDS to 30f)
         }
-        for ((section, rect) in layout(area, height * 0.016f, sections)) {
+        for ((section, rect) in layout(area, height * 0.014f, sections)) {
             when (section) {
                 Section.PRIMARY -> drawPrimary(canvas, rect, s)
                 Section.SECONDARY -> secondary?.let { drawSecondary(canvas, rect, it) }
@@ -344,56 +339,20 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         if (!settings.coreHeatStrip) null else CoreHeat.reading(sysValues).takeIf { it.present }
 
     /**
-     * Core heat strip, like CORE Heat's HUD: CORE and SKIN temperature colored by the
-     * heat zone, the Heat Strain Index in a zone-colored pill between them.
+     * Core heat row, like CORE Heat's HUD: CORE and SKIN temperature colored by the heat
+     * zone, the Heat Strain Index on a zone-colored cell between them.
      */
     private fun drawCoreHeat(canvas: Canvas, rect: RectF, heat: CoreHeat.Reading) {
-        val r = rect.height() * 0.22f
-        fillPaint.color = WorkoutColors.TRACK
-        canvas.drawRoundRect(rect, r, r, fillPaint)
-        val size = rect.height() * 0.52f
-        val inset = rect.height() * 0.3f
-        val baseline = rect.centerY() + capHeight(size) / 2
+        val gap = width * 0.02f
+        val w = (rect.width() - 2 * gap) / 3f
         val tempColor = heat.color ?: Color.WHITE
-
-        labelPaint.textSize = size * 0.62f
-        textPaint.textSize = size
-        // CORE, left
-        labelPaint.textAlign = Paint.Align.LEFT
-        canvas.drawText("CORE", rect.left + inset, baseline, labelPaint)
-        textPaint.textAlign = Paint.Align.LEFT
-        textPaint.color = tempColor
-        canvas.drawText(
-            Format.temperature(heat.core, profile.imperial),
-            rect.left + inset + labelPaint.measureText("CORE ") + size * 0.1f,
-            baseline,
-            textPaint,
-        )
-        // SKIN, right
-        textPaint.textAlign = Paint.Align.RIGHT
+        val core = Format.temperature(heat.core, profile.imperial)
+        drawCell(canvas, rect.left, rect.top, w, rect.height(), "CORE", core, tempColor)
+        val hsi = heat.hsi?.let { "%.1f".format(it) } ?: "--"
+        val onFill = if (heat.color != null) WorkoutColors.TEXT_DARK else Color.WHITE
+        drawCell(canvas, rect.left + w + gap, rect.top, w, rect.height(), "HSI", hsi, onFill, fill = heat.color)
         val skin = Format.temperature(heat.skin, profile.imperial)
-        canvas.drawText(skin, rect.right - inset, baseline, textPaint)
-        labelPaint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("SKIN", rect.right - inset - textPaint.measureText(skin) - size * 0.3f, baseline, labelPaint)
-        textPaint.color = Color.WHITE
-        labelPaint.textAlign = Paint.Align.LEFT
-
-        // heat strain index pill, center
-        val hsi = heat.hsi?.let { "HSI %.1f".format(it) } ?: "HSI --"
-        textPaint.textSize = size * 0.8f
-        val pillW = textPaint.measureText(hsi) + rect.height() * 0.6f
-        tmp.set(
-            rect.centerX() - pillW / 2,
-            rect.top + rect.height() * 0.14f,
-            rect.centerX() + pillW / 2,
-            rect.bottom - rect.height() * 0.14f,
-        )
-        fillPaint.color = heat.color ?: WorkoutColors.BAND
-        canvas.drawRoundRect(tmp, tmp.height() / 2, tmp.height() / 2, fillPaint)
-        textPaint.textAlign = Paint.Align.CENTER
-        textPaint.color = if (heat.color != null) WorkoutColors.TEXT_DARK else Color.WHITE
-        canvas.drawText(hsi, rect.centerX(), rect.centerY() + capHeight(textPaint) / 2, textPaint)
-        textPaint.color = Color.WHITE
+        drawCell(canvas, rect.left + 2 * (w + gap), rect.top, w, rect.height(), "SKIN", skin, tempColor)
     }
 
     /**
@@ -652,15 +611,6 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         val bar = RectF(rect.left, rect.bottom - barH, rect.right, rect.bottom)
         val digits = RectF(rect.left, rect.top + headerSize * 1.25f, rect.right, bar.top - rect.height() * 0.05f)
 
-        // round pause / resume button, right
-        val d = digits.height() * 0.92f
-        val bcx = digits.right - d / 2
-        val bcy = digits.centerY()
-        fillPaint.color = WorkoutColors.BUTTON
-        canvas.drawCircle(bcx, bcy, d / 2, fillPaint)
-        drawPauseGlyph(canvas, bcx, bcy, d * 0.36f, showPlay = s.paused)
-        pauseHit.set(bcx - d * 0.7f, digits.top - headerSize, digits.right, bar.bottom)
-
         val remaining = s.stepRemainingMs
         val text = when {
             s.complete -> "DONE"
@@ -673,16 +623,17 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
             else -> Color.WHITE
         }
         textPaint.textAlign = Paint.Align.LEFT
-        // biggest size whose digits fit beside the button and the timer glyph
-        val maxW = (bcx - d / 2) - digits.left - d * 0.55f
-        textPaint.textSize = digits.height() * 1.18f
+        // biggest size whose digits fit the row with the timer glyph
+        val d = digits.height()
+        val maxW = digits.width() - d * 0.5f
+        textPaint.textSize = d * 1.18f
         while (textPaint.measureText(text) > maxW && textPaint.textSize > 10f) textPaint.textSize *= 0.94f
         val baseline = digits.centerY() + capHeight(textPaint) / 2
         canvas.drawText(text, digits.left, baseline, textPaint)
         textPaint.color = Color.WHITE
         if (!s.complete) {
-            val gx = digits.left + textPaint.measureText(text) + d * 0.28f
-            drawTimerGlyph(canvas, gx, baseline - d * 0.14f, d * 0.13f)
+            val gx = digits.left + textPaint.measureText(text) + d * 0.26f
+            drawTimerGlyph(canvas, gx, baseline - d * 0.13f, d * 0.12f)
         }
 
         drawProgressBar(canvas, bar, if (s.complete) 1f else s.stepProgress ?: 0f)
@@ -701,7 +652,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
     // --------------------------------------------------------------- workout
 
     private fun drawWorkout(canvas: Canvas, rect: RectF, s: WorkoutUiState.Shown, withGraph: Boolean) {
-        val headerSize = if (withGraph) rect.height() * 0.2f else rect.height() * 0.42f
+        val headerSize = if (withGraph) rect.height() * 0.28f else rect.height() * 0.42f
         val headerBaseline = rect.top + headerSize * 0.95f
         labelPaint.textSize = headerSize
         labelPaint.textAlign = Paint.Align.LEFT
@@ -815,28 +766,50 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         val gap = width * 0.02f
         val cellW = (area.width() - gap) / 2f
         val cellH = (area.height() - gap) / 2f
-        val r = cellH * 0.12f
         settings.pageFields.take(4).forEachIndexed { i, field ->
             val left = area.left + (i % 2) * (cellW + gap)
             val top = area.top + (i / 2) * (cellH + gap)
-            tmp.set(left, top, left + cellW, top + cellH)
-            fillPaint.color = WorkoutColors.TRACK
-            canvas.drawRoundRect(tmp, r, r, fillPaint)
-            val pad = cellW * 0.05f
-
-            labelPaint.textAlign = Paint.Align.LEFT
-            labelPaint.textSize = cellH * 0.22f
-            while (labelPaint.measureText(field.label) > cellW - 2 * pad && labelPaint.textSize > 8f) {
-                labelPaint.textSize *= 0.92f
-            }
-            canvas.drawText(field.label, left + pad, top + cellH * 0.3f, labelPaint)
-
-            textPaint.textAlign = Paint.Align.RIGHT
-            textPaint.textSize = cellH * 0.5f
-            textPaint.color = fieldColor(field) ?: Color.WHITE
-            canvas.drawText(fieldValue(field, s), left + cellW - pad, top + cellH - cellH * 0.13f, textPaint)
-            textPaint.color = Color.WHITE
+            drawCell(canvas, left, top, cellW, cellH, field.label, fieldValue(field, s), fieldColor(field) ?: Color.WHITE)
         }
+    }
+
+    /**
+     * One data cell: label top left, value bottom right, each as big as the cell allows
+     * and shrunk only to fit its width. [fill] colors the whole cell (dark label on it).
+     */
+    private fun drawCell(
+        canvas: Canvas,
+        left: Float,
+        top: Float,
+        w: Float,
+        h: Float,
+        label: String,
+        value: String,
+        valueColor: Int,
+        fill: Int? = null,
+    ) {
+        tmp.set(left, top, left + w, top + h)
+        fillPaint.color = fill ?: WorkoutColors.TRACK
+        canvas.drawRoundRect(tmp, h * 0.12f, h * 0.12f, fillPaint)
+        val pad = w * 0.06f
+
+        labelPaint.textAlign = Paint.Align.LEFT
+        labelPaint.textSize = h * 0.25f
+        fitWidth(labelPaint, label, w - 2 * pad)
+        labelPaint.color = if (fill != null) WorkoutColors.TEXT_DARK else WorkoutColors.LILAC
+        canvas.drawText(label, left + pad, top + h * 0.29f, labelPaint)
+        labelPaint.color = WorkoutColors.LILAC
+
+        textPaint.textAlign = Paint.Align.RIGHT
+        textPaint.textSize = h * 0.6f
+        fitWidth(textPaint, value, w - 2 * pad)
+        textPaint.color = valueColor
+        canvas.drawText(value, left + w - pad, top + h * 0.9f, textPaint)
+        textPaint.color = Color.WHITE
+    }
+
+    private fun fitWidth(paint: Paint, text: String, maxW: Float) {
+        while (paint.measureText(text) > maxW && paint.textSize > 8f) paint.textSize *= 0.94f
     }
 
     /** CORE's colors for the heat fields: zone colors, adaptation level blues. */
@@ -949,23 +922,6 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         canvas.drawLine(cx, cy, cx, cy - r * 0.6f, glyphPaint)
         canvas.drawLine(cx, cy, cx + r * 0.45f, cy + r * 0.2f, glyphPaint)
         glyphPaint.color = Color.WHITE
-    }
-
-    /** Pause bars, or a play triangle while paused. */
-    private fun drawPauseGlyph(canvas: Canvas, cx: Float, cy: Float, size: Float, showPlay: Boolean) {
-        fillPaint.color = Color.WHITE
-        if (showPlay) {
-            path.rewind()
-            path.moveTo(cx - size * 0.4f, cy - size * 0.55f)
-            path.lineTo(cx + size * 0.6f, cy)
-            path.lineTo(cx - size * 0.4f, cy + size * 0.55f)
-            path.close()
-            canvas.drawPath(path, fillPaint)
-        } else {
-            val barW = size * 0.32f
-            canvas.drawRect(cx - size * 0.45f, cy - size / 2, cx - size * 0.45f + barW, cy + size / 2, fillPaint)
-            canvas.drawRect(cx + size * 0.45f - barW, cy - size / 2, cx + size * 0.45f, cy + size / 2, fillPaint)
-        }
     }
 
     private fun capHeight(paint: Paint): Float = capHeight(paint.textSize)

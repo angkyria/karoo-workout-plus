@@ -51,8 +51,9 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
 - **`WorkoutExtension`** (KarooExtension service): owns the KarooSystemService,
   consumers for RideState / UserProfile / ActiveRidePage, and the render loop
   (conflated, ≤4 Hz). Stream ownership: the gate stream
-  (`WORKOUT_INTERVAL_COUNT`) runs while a ride is active; detail streams only while
-  a workout is loaded; page-field streams only while the full page is visible.
+  (`WORKOUT_INTERVAL_COUNT`) runs while a ride is active; detail streams (plus the
+  sensor stream of each targeted kind) only while a workout is loaded; page-field
+  streams only while the full page is visible.
 - **`data/`** — `WorkoutStreams` folds raw fields into `WorkoutSnapshot`;
   `WorkoutEngine` resolves targets (implied ±5 % power / ±7.5 % HR, status on
   rounded numbers, kind via the per-kind target streams + learned type ids) and
@@ -66,7 +67,9 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   taller of status bar / 32 dp ride header), `WorkoutOverlayView` (all drawing and
   gestures: top handle tap, fling or slow drag down = minimize, horizontal swipe =
   ride page change), `WorkoutColors` (native palette sampled from Hammerhead's
-  drawer), `Format`.
+  drawer), `Format`. The CORE row and the 2x2 fields share `drawCell` (label top
+  left, value bottom right, shrunk only to fit) and get the most page height — the
+  rider couldn't read them at the first sizes.
 - **`WorkoutPageField`** — the "Workout+ page" graphical data type; a page marker
   (and a countdown under the overlay).
 - **`data/CoreHeat`** — CORE sensor + CORE Heat extension (`TYPE_EXT::coreheat::*`,
@@ -94,6 +97,10 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
 - With the power meter off, `WORKOUT_PRIMARY_TARGET_OUTPUT_VALUE` stays SEARCHING and
   `WORKOUT_PRIMARY_TARGET` streams nothing either; only `WORKOUT_POWER_TARGET`
   carries the target, so `WorkoutStreams` falls back to the per-kind streams.
+- The workout output stream was never verified with the power meter **on**, and the
+  rider reported no power on the page: a missing output falls back to the sensor
+  streams (`WorkoutStreams.liveStreams`: 3 s or instant power, HR, cadence — one per
+  targeted kind). The 10 s `streams` log and the diagnostics panel show both.
 - Hardware keys (`/system/usr/keylayout/gpio-keys.kl`, `qpnp_pon.kl`): top left/right
   = NAVIGATE_PREVIOUS / NAVIGATE_NEXT, bottom left = BACK, bottom right = NAVIGATE_IN.
 - `PerformHardwareAction` injects its key into the **focused window**: a focusable
@@ -115,8 +122,9 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
 
 - karoo-ext workout fields: times are milliseconds; `WORKOUT_CURRENT_STEP` is 0-based;
   target-type / workout-state codes are undocumented (see the diagnostics panel).
-- karoo-ext has no skip/scale/workout-pause effects; the pause button dispatches
-  `PauseRide` / `ResumeRide`.
+- karoo-ext has no skip/scale/workout-pause effects — only `PauseRide` /
+  `ResumeRide`, which pause the whole ride. So there's no pause button (the rider
+  asked for it gone); `PAUSED` shows while the ride is paused.
 - `ViewEmitter.updateView` drops calls < 900 ms apart — `WorkoutPageField` paces itself.
 - `OverlayController.show()` must not relayout before `addView` (relayout hooks are
   attached after the window exists). WindowManager calls are main-thread only.

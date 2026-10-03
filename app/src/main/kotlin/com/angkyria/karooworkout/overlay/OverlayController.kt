@@ -47,9 +47,6 @@ class OverlayController(private val service: WorkoutExtension) {
     private var lastSettings: Settings? = null
     private var appliedParams: WindowManager.LayoutParams? = null
 
-    /** Pause button hook (the extension knows whether this is a real ride or the demo). */
-    var onPauseToggle: (() -> Unit)? = null
-
     /**
      * True while the full workout page — the only place system data fields are drawn —
      * is on screen; the extension streams those fields only then.
@@ -109,7 +106,6 @@ class OverlayController(private val service: WorkoutExtension) {
                     if (next) PerformHardwareAction.TopRightPress else PerformHardwareAction.TopLeftPress,
                 )
             }
-            created.onPauseToggle = { onPauseToggle?.invoke() }
         } else {
             current.update(state, settings, profile, sysValues)
             applyLayoutIfChanged(current, settings)

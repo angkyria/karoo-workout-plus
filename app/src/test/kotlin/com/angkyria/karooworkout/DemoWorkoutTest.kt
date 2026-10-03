@@ -42,13 +42,4 @@ class DemoWorkoutTest {
         assertEquals(shown.stepIndex + 1, shown.history.size)
         assertEquals(499_000L, shown.elapsedMs)
     }
-
-    @Test
-    fun pausedDemoFreezesTheCountdown() {
-        val demo = DemoWorkout()
-        demo.togglePause()
-        val before = WorkoutStreams.snapshot(demo.raw()).stepRemainingMs
-        demo.tick(5_000)
-        assertEquals(before, WorkoutStreams.snapshot(demo.raw()).stepRemainingMs)
-    }
 }

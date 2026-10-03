@@ -25,6 +25,9 @@ data class RawTarget(
     val rampType: Int? = null,
 )
 
+/** The rider's own sensor reading for one target kind (power meter, HR strap, cadence). */
+data class LiveOutput(val instant: Double?, val smoothed: Double?)
+
 /**
  * One coherent read of every workout stream. Times are milliseconds;
  * [stepIndex] is 0-based (Karoo streams the current step that way).
@@ -42,6 +45,8 @@ data class WorkoutSnapshot(
     val scalePercent: Int? = null,
     /** Target value per kind from the dedicated power / HR / cadence target streams. */
     val kindValues: Map<TargetKind, Double> = emptyMap(),
+    /** The rider's sensor streams per kind: the output when Karoo's workout output has none. */
+    val live: Map<TargetKind, LiveOutput> = emptyMap(),
 ) {
     val loaded: Boolean get() = stepCount > 0 && stepIndex != null
 }

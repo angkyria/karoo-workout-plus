@@ -35,12 +35,13 @@ No system modification.
   the whole 137–187 W span, and are drawn as slopes in the graph.
 - **Secondary target** (power / HR / cadence) as a compact row.
 - **Interval**: `3 OF 9`, a huge countdown (amber in the last 5 s), progress bar,
-  and a round **pause / resume** button.
+  and `PAUSED` while the ride is paused.
 - **Workout**: time left, workout scale when it isn't 100 %, progress bar, and an
   **interval graph** — intervals already ridden at their real length, colored by
   your power / HR zones, the current one outlined, the rest of the workout hatched.
-- **Core heat** with a [CORE](https://corebodytemp.com) sensor: a strip with core
-  and skin temperature and the Heat Strain Index, in CORE's heat-zone colors.
+- **Core heat** with a [CORE](https://corebodytemp.com) sensor: a row with core
+  temperature, the Heat Strain Index and skin temperature, as big as the data
+  fields, in CORE's heat-zone colors.
   The index, heat zone, training load and adaptation come from the
   [CORE Heat](https://github.com/angkyria/karoo-core) extension when it's installed.
 - **Four data fields** of your choice (3s power, HR, cadence, NP, TSS, lap
@@ -49,8 +50,10 @@ No system modification.
 
 Ranges follow Karoo OS: single-value targets get the implied band (power ±5 %,
 heart rate ±7.5 %), and in/out of range is judged on the rounded numbers you
-see, so the color never contradicts the digits. The target shows even when the
-power meter isn't connected (the output then reads `--`).
+see, so the color never contradicts the digits. Your power (heart rate,
+cadence) comes from the Karoo's workout output, or straight from the sensor
+when the workout output has none. The target shows even when the power meter
+isn't connected (the output then reads `--`).
 
 ### Gestures and buttons
 
@@ -60,7 +63,6 @@ power meter isn't connected (the output then reads `--`).
 | Minimize to the chip | on other pages: tap the **handle** at the top, or swipe down. The workout page always stays covered |
 | Bring the layout back | tap the chip, or come back to the workout page |
 | Visual ↔ numeric target | tap the target |
-| Pause / resume | the round button (pauses the ride, which pauses the workout) |
 
 Workout+ never takes the hardware buttons: page changes, lap and back keep
 their native Karoo actions.
@@ -114,7 +116,8 @@ release (`.github/workflows/release.yml`).
   index, interval / workout time remaining, primary and secondary target (with
   and without output), and the per-kind power / HR / cadence target streams
   (which tell target kinds apart, carry the workout scale, and keep the target
-  available without a sensor).
+  available without a sensor). The power / HR / cadence sensor streams back up
+  the workout output.
 - karoo-ext exposes the *running* workout only — not the interval list — so the
   interval graph is built as you ride; time is counted from the interval
   countdown itself, so pauses never count.
@@ -129,8 +132,8 @@ release (`.github/workflows/release.yml`).
 ### Limitations
 
 - karoo-ext has no workout controls: skip / rewind interval and the workout
-  scale stay on the Karoo's own controls (Workout+ shows their effect). The pause
-  button pauses the ride.
+  scale stay on the Karoo's own controls (Workout+ shows their effect). It can
+  only pause the whole ride, not the workout, so Workout+ has no pause button.
 - Upcoming intervals are unknown until ridden (hatched in the graph).
 - The layout shows while a ride is recording or paused, not before the start.
 - Workout stream units and enum codes are undocumented; the settings screen has a

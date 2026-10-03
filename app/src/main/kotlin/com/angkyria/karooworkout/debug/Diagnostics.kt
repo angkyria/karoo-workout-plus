@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
  * extension service, so a plain singleton is enough.
  */
 object Diagnostics {
-    /** Raw workout stream fields (data type id -> field id -> value). */
+    /** Raw workout stream fields, plus the sensor streams behind the output (data type id -> field id -> value). */
     val workoutStreams = MutableStateFlow<Map<String, Map<String, Double>>>(emptyMap())
 
     /** Data type ids on the ride page currently on screen, and whether it counts as the workout page. */

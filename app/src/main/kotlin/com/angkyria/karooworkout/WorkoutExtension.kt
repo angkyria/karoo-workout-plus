@@ -19,8 +19,6 @@ import io.hammerhead.karooext.KarooSystemService
 import io.hammerhead.karooext.extension.KarooExtension
 import io.hammerhead.karooext.models.ActiveRidePage
 import io.hammerhead.karooext.models.DataType
-import io.hammerhead.karooext.models.PauseRide
-import io.hammerhead.karooext.models.ResumeRide
 import io.hammerhead.karooext.models.RideState
 import io.hammerhead.karooext.models.UserProfile
 import kotlinx.coroutines.CoroutineScope
@@ -78,7 +76,6 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
         karooSystem = KarooSystemService(applicationContext)
         settingsRepo = SettingsRepo(applicationContext)
         overlay = OverlayController(this)
-        overlay.onPauseToggle = ::togglePause
         hub = StreamHub(karooSystem)
 
         karooSystem.connect { connected ->
@@ -118,13 +115,19 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
                     hub.want(OWNER_GATE, if (needed) setOf(WorkoutStreams.GATE) else emptySet())
                 }
         }
+        // plus the rider's sensor for each targeted kind, in case Karoo gives no output
         scope.launch {
-            hub.values
-                .map { WorkoutStreams.snapshot(it).loaded }
-                .distinctUntilChanged()
-                .collect { loaded ->
-                    hub.want(OWNER_DETAIL, if (loaded) WorkoutStreams.DETAIL.toSet() else emptySet())
+            combine(hub.values, settingsRepo.settings) { values, s ->
+                val snapshot = WorkoutStreams.snapshot(values)
+                if (!snapshot.loaded) {
+                    emptySet()
+                } else {
+                    WorkoutStreams.DETAIL.toSet() +
+                        WorkoutStreams.liveStreams(snapshot.kindValues.keys, s.smoothedOutput)
                 }
+            }
+                .distinctUntilChanged()
+                .collect { hub.want(OWNER_DETAIL, it) }
         }
         // page data fields stream only while the full page that draws them is up
         scope.launch {
@@ -186,14 +189,14 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
         val now = System.currentTimeMillis()
         val raw = if (s.demoMode) i.demoRaw else i.values
         val state = when {
-            s.demoMode -> engine.update(WorkoutStreams.snapshot(raw), now, demo.paused, s.smoothedOutput)
+            s.demoMode -> engine.update(WorkoutStreams.snapshot(raw), now, paused = false, s.smoothedOutput)
             !i.ride.active -> {
                 engine.reset()
                 WorkoutUiState.Hidden
             }
             else -> engine.update(WorkoutStreams.snapshot(raw), now, i.ride is RideState.Paused, s.smoothedOutput)
         }
-        val workoutRaw = raw.filterKeys { it.startsWith(WORKOUT_TYPE_PREFIX) }
+        val workoutRaw = raw.filterKeys { it.startsWith(WORKOUT_TYPE_PREFIX) || it in WorkoutStreams.LIVE }
         Diagnostics.workoutStreams.value = workoutRaw
         if (!s.demoMode && workoutRaw.isNotEmpty() && now - lastStreamLogMs >= STREAM_LOG_INTERVAL_MS) {
             // field units / enum codes are undocumented: keep a trail for checking on device
@@ -226,20 +229,6 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
     private fun fieldTextFor(s: WorkoutUiState.Shown): String {
         val time = s.stepRemainingMs?.let { Format.countdown(it) } ?: "OPEN"
         return "${s.stepIndex + 1}/${s.stepCount}  $time"
-    }
-
-    /** Round button: pauses / resumes the ride, which pauses / resumes the workout. */
-    private fun togglePause() {
-        if (settings.demoMode) {
-            demo.togglePause()
-            demoValues.value = demo.raw()
-            return
-        }
-        when (rideState.value) {
-            is RideState.Recording -> karooSystem.dispatch(PauseRide)
-            is RideState.Paused -> karooSystem.dispatch(ResumeRide)
-            else -> Unit
-        }
     }
 
     private val RideState.active: Boolean

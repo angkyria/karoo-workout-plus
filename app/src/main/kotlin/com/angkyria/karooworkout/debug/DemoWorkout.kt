@@ -39,22 +39,14 @@ class DemoWorkout(private val ftp: Int = 250) {
     private val totalMs = steps.sumOf { it.seconds } * 1000L
     private var positionMs = 0L
 
-    var paused = false
-        private set
-
-    fun togglePause() {
-        paused = !paused
-    }
-
-    /** Back to the first interval, running — like loading the workout afresh. */
+    /** Back to the first interval — like loading the workout afresh. */
     fun restart() {
         positionMs = 0
-        paused = false
     }
 
     /** Advance demo time; loops back to the first interval at the end. */
     fun tick(dtMs: Long) {
-        if (!paused) positionMs = (positionMs + dtMs) % totalMs
+        positionMs = (positionMs + dtMs) % totalMs
     }
 
     /**
@@ -111,7 +103,7 @@ class DemoWorkout(private val ftp: Int = 250) {
                 mapOf(
                     DataType.Field.WORKOUT_CURRENT_STEP to index.toDouble(),
                     DataType.Field.WORKOUT_STEP_COUNT to steps.size.toDouble(),
-                    DataType.Field.WORKOUT_STATE to if (paused) 2.0 else 1.0,
+                    DataType.Field.WORKOUT_STATE to 1.0,
                 ),
             )
             put(

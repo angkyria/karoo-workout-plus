@@ -36,6 +36,38 @@ object WorkoutStreams {
         TargetKind.CADENCE to DataType.Type.WORKOUT_CADENCE_TARGET,
     )
 
+    /** A sensor stream: its data type and the field carrying the value. */
+    private class Sensor(val typeId: String, val field: String)
+
+    /**
+     * The rider's own sensor streams per kind, instant and 3 s smoothed. Karoo's workout
+     * output stream is the first choice, but only these are proven to stream on every
+     * Karoo, so they fill in whenever it gives no output.
+     */
+    private val liveSensors = mapOf(
+        TargetKind.POWER to (
+            Sensor(DataType.Type.POWER, DataType.Field.POWER) to
+                Sensor(DataType.Type.SMOOTHED_3S_AVERAGE_POWER, DataType.Field.SMOOTHED_3S_AVERAGE_POWER)
+            ),
+        TargetKind.HEART_RATE to (
+            Sensor(DataType.Type.HEART_RATE, DataType.Field.HEART_RATE) to
+                Sensor(DataType.Type.HEART_RATE, DataType.Field.HEART_RATE)
+            ),
+        TargetKind.CADENCE to (
+            Sensor(DataType.Type.CADENCE, DataType.Field.CADENCE) to
+                Sensor(DataType.Type.SMOOTHED_3S_AVERAGE_CADENCE, DataType.Field.SMOOTHED_3S_AVERAGE_CADENCE)
+            ),
+    )
+
+    /** Every sensor stream [liveStreams] may run (for the diagnostics). */
+    val LIVE: Set<String> = liveSensors.values.flatMap { listOf(it.first.typeId, it.second.typeId) }.toSet()
+
+    /** The sensor streams worth running for a workout that targets [kinds]: one per kind. */
+    fun liveStreams(kinds: Set<TargetKind>, smoothed: Boolean): Set<String> =
+        kinds.mapNotNull { kind ->
+            liveSensors[kind]?.let { (instant, smooth) -> if (smoothed) smooth.typeId else instant.typeId }
+        }.toSet()
+
     /** Fold the latest field values (keyed by data type id) into a snapshot. */
     fun snapshot(raw: Map<String, Map<String, Double>>): WorkoutSnapshot {
         val count = raw[GATE].orEmpty()
@@ -81,6 +113,12 @@ object WorkoutStreams {
                 raw[typeId]?.get(DataType.Field.WORKOUT_TARGET_VALUE)
                     ?.takeIf { it > 0 }
                     ?.let { kind to it }
+            }.toMap(),
+            live = liveSensors.mapNotNull { (kind, sensors) ->
+                fun read(sensor: Sensor) = raw[sensor.typeId]?.get(sensor.field)?.takeIf { it.isFinite() }
+                val instant = read(sensors.first)
+                val smoothed = read(sensors.second)
+                if (instant == null && smoothed == null) null else kind to LiveOutput(instant, smoothed)
             }.toMap(),
         )
     }

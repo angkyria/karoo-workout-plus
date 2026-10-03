@@ -17,9 +17,6 @@ object WorkoutColors {
     const val LILAC = 0xFFEFC7FF.toInt()
     const val LILAC_DIM = 0xFFC9A3DC.toInt()
 
-    /** Round pause / resume button. */
-    const val BUTTON = 0xFF401058.toInt()
-
     /** Workout glyph green. */
     const val ACCENT = 0xFF24C78A.toInt()
 

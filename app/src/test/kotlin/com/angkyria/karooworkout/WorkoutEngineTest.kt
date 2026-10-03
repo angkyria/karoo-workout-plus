@@ -1,5 +1,6 @@
 package com.angkyria.karooworkout
 
+import com.angkyria.karooworkout.data.LiveOutput
 import com.angkyria.karooworkout.data.RawTarget
 import com.angkyria.karooworkout.data.TargetKind
 import com.angkyria.karooworkout.data.TargetStatus
@@ -54,6 +55,24 @@ class WorkoutEngineTest {
         val t = WorkoutEngine.resolve(RawTarget(value = 160.0, min = 0.0, max = 0.0), TargetKind.HEART_RATE, true)!!
         assertEquals(148.0, t.min, 1e-9)
         assertEquals(172.0, t.max, 1e-9)
+    }
+
+    @Test
+    fun outputFallsBackToTheRidersPowerStreamWhenKarooHoldsTheWorkoutOutput() {
+        // the workout output stream gave nothing (searching); the power meter streams
+        val s = snap(0, 60_000, primary = power(200.0, 220.0, null))
+            .copy(live = mapOf(TargetKind.POWER to LiveOutput(instant = 231.0, smoothed = 226.0)))
+        val t = WorkoutEngine().tick(s).primary!!
+        assertEquals(226.0, t.output!!, 1e-9)
+        assertEquals(TargetStatus.OVER, t.status)
+        val instant = WorkoutEngine().update(s, 0, false, smoothedOutput = false) as WorkoutUiState.Shown
+        assertEquals(231.0, instant.primary!!.output!!, 1e-9)
+    }
+
+    @Test
+    fun karoosWorkoutOutputWinsOverTheSensorStream() {
+        val s = snap(0, 60_000).copy(live = mapOf(TargetKind.POWER to LiveOutput(instant = 300.0, smoothed = 300.0)))
+        assertEquals(210.0, WorkoutEngine().tick(s).primary!!.output!!, 1e-9)
     }
 
     @Test
