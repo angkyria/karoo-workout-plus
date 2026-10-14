@@ -142,7 +142,7 @@
         <a class="button primary" href="https://github.com/angkyria/karoo-workout-plus/releases/latest">Download the APK</a>
         <a class="button secondary" href="https://github.com/angkyria/karoo-workout-plus">View the source</a>
       </div>
-      <p class="note">Version 1.1.0. Open source, Apache 2.0. Built on Hammerhead's official extension API, no system changes.</p>
+      <p class="note">Version 1.2.0. Open source, Apache 2.0. Built on Hammerhead's official extension API, no system changes.</p>
     </div>
     <div class="device" aria-hidden="true">
       <div class="screen">
@@ -177,7 +177,10 @@
             <span>Tap the target to switch between the bar and a plain number.</span></button></li>
           <li><button type="button" aria-pressed="false" data-img="workout-page-pulse.png">
             <strong>The last seconds</strong>
-            <span>The countdown turns amber and the bar flashes with each beep: 10 s, then 5-4-3-2-1.</span></button></li>
+            <span>The countdown turns amber and the screen flashes with each beep: 10 s, then 5-4-3-2-1.</span></button></li>
+          <li><button type="button" aria-pressed="false" data-img="workout-page-flash.png">
+            <strong>Screen flash</strong>
+            <span>An amber frame with every countdown beep, green as the next interval starts. You'll see it from the corner of your eye.</span></button></li>
           <li><button type="button" aria-pressed="false" data-img="workout-page-recap.png">
             <strong>Interval recap</strong>
             <span>For 8 s after an interval: its time in range, your average and its length.</span></button></li>
@@ -241,7 +244,7 @@ adb shell appops set com.angkyria.karooworkout SYSTEM_ALERT_WINDOW allow</pre>
       <h2>Good to know</h2>
       <div class="facts">
         <div><h3>Your buttons stay yours</h3><p>Workout+ never takes the hardware buttons. Page changes, lap and back work as always, and a swipe changes the page underneath.</p></div>
-        <div><h3>Beeps you can count on</h3><p>A double beep 10 s before an interval ends, then 5-4-3-2-1 and a long beep as the next one starts. Turn on off-target beeps to hear when you've been under or over the target for 15 s. All in the Alerts settings.</p></div>
+        <div><h3>Beeps you can count on</h3><p>A double beep 10 s before an interval ends, then 5-4-3-2-1 and a long beep as the next one starts, and the screen flashes with each. Turn on off-target beeps to hear when you've been under or over the target for 15 s. All in the Alerts settings.</p></div>
         <div><h3>Choose your fields</h3><p>Four slots: power, heart rate, cadence, lap and time data, core temperature and more. Set any of them to None to give the rest more room.</p></div>
         <div><h3>Power from your sensor</h3><p>Your power, heart rate or cadence come from the Karoo's workout data, or straight from the sensor when the workout data has none.</p></div>
         <div><h3>CORE heat</h3><p>With a <a href="https://corebodytemp.com">CORE</a> sensor, core temperature, heat strain and skin temperature show in the heat-zone colors. The heat strain comes from the <a href="https://angkyria.github.io/karoo-core/">CORE Heat</a> extension.</p></div>

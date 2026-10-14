@@ -1,6 +1,7 @@
 package com.angkyria.karooworkout
 
 import com.angkyria.karooworkout.data.Beep
+import com.angkyria.karooworkout.data.Flash
 import com.angkyria.karooworkout.data.IntervalRecord
 import com.angkyria.karooworkout.data.Target
 import com.angkyria.karooworkout.data.TargetKind
@@ -119,7 +120,7 @@ class WorkoutCuesTest {
         val frame = cues.at(shown(0, 5_000), 1_000, beeps = false)
         assertTrue(frame.beeps.isEmpty())
         assertTrue(frame.pulse)
-        assertEquals(1_500L, frame.nextChangeAtMs)
+        assertEquals(1_400L, frame.nextChangeAtMs) // the flash ends first, then the pulse
         assertFalse(cues.at(shown(0, 5_000), 1_520, beeps = false).pulse)
     }
 
@@ -182,6 +183,25 @@ class WorkoutCuesTest {
             beeps += cues.at(s, sec * 1000L, offTarget = false).beeps.size
         }
         assertEquals(0, beeps)
+    }
+
+    @Test
+    fun countdownFlashesAmberAndTheStartGreenEvenWithoutBeeps() {
+        cues.at(shown(0, 6_000), 0, beeps = false)
+        val tick = cues.at(shown(0, 5_000), 1_000, beeps = false)
+        assertEquals(Flash.COUNTDOWN, tick.flash)
+        assertNull(cues.at(shown(0, 5_000), 1_450, beeps = false).flash)
+        cues.at(shown(0, 1_000), 5_000, beeps = false)
+        val start = cues.at(shown(1, 60_000), 6_000, beeps = false)
+        assertEquals(Flash.GO, start.flash)
+        assertFalse(start.pulse)
+        assertEquals(6_400L, start.nextChangeAtMs)
+    }
+
+    @Test
+    fun aSkipDoesNotFlash() {
+        cues.at(shown(0, 40_000), 0)
+        assertNull(cues.at(shown(1, 60_000, history = listOf(rec(0), rec(1))), 1_000).flash)
     }
 
     @Test

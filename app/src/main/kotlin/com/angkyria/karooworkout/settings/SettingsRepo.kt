@@ -35,6 +35,7 @@ class SettingsRepo(private val context: Context) {
         val intervalBeeps = booleanPreferencesKey("interval_beeps")
         val offTargetBeeps = booleanPreferencesKey("off_target_beeps")
         val intervalRecap = booleanPreferencesKey("interval_recap")
+        val flashScreen = booleanPreferencesKey("flash_screen")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }.distinctUntilChanged()
@@ -65,6 +66,7 @@ class SettingsRepo(private val context: Context) {
             intervalBeeps = this[Keys.intervalBeeps] ?: d.intervalBeeps,
             offTargetBeeps = this[Keys.offTargetBeeps] ?: d.offTargetBeeps,
             intervalRecap = this[Keys.intervalRecap] ?: d.intervalRecap,
+            flashScreen = this[Keys.flashScreen] ?: d.flashScreen,
             demoMode = this[Keys.demoMode] ?: d.demoMode,
             pageFields = this[Keys.pageFields]?.parseFields() ?: d.pageFields,
         )
@@ -87,6 +89,7 @@ class SettingsRepo(private val context: Context) {
         this[Keys.intervalBeeps] = s.intervalBeeps
         this[Keys.offTargetBeeps] = s.offTargetBeeps
         this[Keys.intervalRecap] = s.intervalRecap
+        this[Keys.flashScreen] = s.flashScreen
         this[Keys.demoMode] = s.demoMode
         this[Keys.pageFields] = s.pageFields.joinToString(",") { it.name }
     }

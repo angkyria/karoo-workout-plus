@@ -148,6 +148,9 @@ private fun SettingsScreen(
         SwitchRow("Countdown beeps (10 s, 5-4-3-2-1, start)", settings.intervalBeeps) { on ->
             update { it.copy(intervalBeeps = on) }
         }
+        SwitchRow("Flash the screen with the beeps", settings.flashScreen) { on ->
+            update { it.copy(flashScreen = on) }
+        }
         SwitchRow("Off-target beeps (after 15 s)", settings.offTargetBeeps) { on ->
             update { it.copy(offTargetBeeps = on) }
         }

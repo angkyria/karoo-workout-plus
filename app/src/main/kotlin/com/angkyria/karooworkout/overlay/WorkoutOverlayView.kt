@@ -15,6 +15,7 @@ import android.view.View
 import com.angkyria.karooworkout.R
 import com.angkyria.karooworkout.data.CoreHeat
 import com.angkyria.karooworkout.data.CueFrame
+import com.angkyria.karooworkout.data.Flash
 import com.angkyria.karooworkout.data.IntervalRecord
 import com.angkyria.karooworkout.data.RiderProfile
 import com.angkyria.karooworkout.data.Target
@@ -207,7 +208,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         val common = listOf(
             machine.size, width, height, settings, display,
             s.stepIndex, s.stepCount, s.stepRemainingMs?.let { (it + 999) / 1000 },
-            s.primary.sig(), s.paused, s.complete, cues.pulse,
+            s.primary.sig(), s.paused, s.complete, cues.pulse, flash(),
         )
         val rest = when (machine.size) {
             Size.CHIP -> emptyList()
@@ -277,6 +278,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         color = WorkoutColors.LILAC
         typeface = font
     }
+    private val flashPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val path = Path()
     private val tmp = RectF()
 
@@ -294,6 +296,21 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
             Size.DRAWER -> drawDrawer(canvas, s)
             Size.FULL -> drawPage(canvas, s)
         }
+        flash()?.let { if (machine.size != Size.CHIP) drawFlashFrame(canvas, it) }
+    }
+
+    /** The flash to draw now, if the setting allows it. */
+    private fun flash(): Flash? = cues.flash?.takeIf { settings.flashScreen }
+
+    private fun flashColor(f: Flash): Int = if (f == Flash.GO) WorkoutColors.IN_RANGE else WorkoutColors.ENDING
+
+    /** A thick frame around the page / drawer: seen from the corner of the eye, digits untouched. */
+    private fun drawFlashFrame(canvas: Canvas, f: Flash) {
+        val w = min(width, height) * FLASH_FRAME_FRACTION
+        flashPaint.color = flashColor(f)
+        flashPaint.strokeWidth = w
+        tmp.set(w / 2, w / 2, width - w / 2, height - w / 2)
+        canvas.drawRect(tmp, flashPaint)
     }
 
     private enum class Section { PRIMARY, SECONDARY, TIMING, CORE_HEAT, FIELDS }
@@ -1034,7 +1051,13 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
     private fun drawChip(canvas: Canvas, s: WorkoutUiState.Shown) {
         val h = height.toFloat()
         tmp.set(0f, 0f, width.toFloat(), h)
-        canvas.drawRoundRect(tmp, h / 2, h / 2, bgPaint)
+        val flash = flash()
+        if (flash != null) {
+            fillPaint.color = flashColor(flash)
+            canvas.drawRoundRect(tmp, h / 2, h / 2, fillPaint)
+        } else {
+            canvas.drawRoundRect(tmp, h / 2, h / 2, bgPaint)
+        }
         val (t, time) = chipParts(s)
         textPaint.textSize = h * CHIP_TEXT_FRACTION
         val timeW = textPaint.measureText(time)
@@ -1055,7 +1078,11 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         textPaint.textSize = h * CHIP_TEXT_FRACTION
         textPaint.textAlign = Paint.Align.LEFT
         val remaining = s.stepRemainingMs
-        textPaint.color = if (remaining != null && remaining in 1..ENDING_MS) WorkoutColors.ENDING else Color.WHITE
+        textPaint.color = when {
+            flash != null -> WorkoutColors.TEXT_DARK
+            remaining != null && remaining in 1..ENDING_MS -> WorkoutColors.ENDING
+            else -> Color.WHITE
+        }
         canvas.drawText(time, x, h / 2 + capHeight(textPaint) / 2, textPaint)
         textPaint.color = Color.WHITE
     }
@@ -1107,6 +1134,9 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
 
         /** Countdown turns amber for the last seconds of an interval. */
         private const val ENDING_MS = 5_000L
+
+        /** Flash frame width as a share of the panel's short side (~12 px on a Karoo 2). */
+        private const val FLASH_FRAME_FRACTION = 0.025f
 
         private const val SWIPE_MIN_DISTANCE_PX = 50f
         private const val SWIPE_MIN_VELOCITY = 250f

@@ -88,7 +88,9 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   *crossings* between frames (renders ≤4 Hz, countdown ~1 Hz; a jump > 3 s crosses
   nothing): `Beep.WARNING` at 10 s (steps ≥ 12 s), `TICK` at 5..1, `START` on a
   natural end (`IntervalRecord.endedNaturally`, not on skips), the bar `pulse`
-  (500 ms per beep), the 8 s `recap`, and off-target beeps (15 s straight UNDER/OVER
+  (500 ms per beep), the screen `flash` (400 ms: `COUNTDOWN` amber, `GO` green on a
+  natural start; a frame on page / drawer, the chip's background; setting
+  `flashScreen`), the 8 s `recap`, and off-target beeps (15 s straight UNDER/OVER
   after the interval's first 10 s, then every 30 s). `WorkoutExtension` plays them
   with `PlayBeepPattern` on every page (overlay or not) and re-renders at
   `nextChangeAtMs` so the pulse / recap end without a stream tick.

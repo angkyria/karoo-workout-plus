@@ -168,6 +168,8 @@ data class Settings(
     val intervalBeeps: Boolean = true,
     /** Beep after 15 s straight under / over the target (then every 30 s). */
     val offTargetBeeps: Boolean = false,
+    /** Flash the screen with the countdown beeps (a frame on the page, the chip's background). */
+    val flashScreen: Boolean = true,
     /** Recap card of the interval that just ended, in place of the graph for 8 s. */
     val intervalRecap: Boolean = true,
     /** Feed a synthetic workout (on-desk testing, no ride or trainer needed). */

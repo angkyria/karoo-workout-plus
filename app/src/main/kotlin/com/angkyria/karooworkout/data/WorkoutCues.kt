@@ -18,11 +18,16 @@ enum class Beep(val tones: List<Pair<Int?, Int>>) {
     OVER(listOf(1600 to 160, null to 90, 1600 to 160)),
 }
 
+/** A screen flash with the beeps: amber while counting down, green as the next interval starts. */
+enum class Flash { COUNTDOWN, GO }
+
 /** What one frame asks for: sounds to play now, and what the view draws. */
 data class CueFrame(
     val beeps: List<Beep> = emptyList(),
     /** The interval bar flashes (countdown seconds and the 10 s warning). */
     val pulse: Boolean = false,
+    /** The screen flashes (frame on the page / drawer, the chip's background). */
+    val flash: Flash? = null,
     /** The interval that just ran out, for the recap card. */
     val recap: IntervalRecord? = null,
     /** When the drawn cues change by themselves (pulse off, recap gone): render again then. */
@@ -46,6 +51,8 @@ class WorkoutCues {
     private var lastNowMs: Long? = null
     private var lastComplete = false
     private var pulseUntilMs = 0L
+    private var flash: Flash? = null
+    private var flashUntilMs = 0L
     private var recap: IntervalRecord? = null
     private var recapUntilMs = 0L
 
@@ -59,6 +66,8 @@ class WorkoutCues {
         lastNowMs = null
         lastComplete = false
         pulseUntilMs = 0
+        flash = null
+        flashUntilMs = 0
         recap = null
         recapUntilMs = 0
         resetOffTarget()
@@ -85,13 +94,17 @@ class WorkoutCues {
         when {
             state.complete -> {
                 // the last interval ran out: one long beep for the end of the workout
-                if (!lastComplete && prevRem != null && prevRem <= WorkoutEngine.NATURAL_END_MS) beeps += Beep.START
+                if (!lastComplete && prevRem != null && prevRem <= WorkoutEngine.NATURAL_END_MS) {
+                    beeps += Beep.START
+                    flashFor(Flash.GO, nowMs)
+                }
                 recap = null
             }
             prevIndex != null && index > prevIndex -> {
                 val ended = state.history.firstOrNull { it.index == prevIndex }
                 if (ended?.endedNaturally == true && !state.paused) {
                     beeps += Beep.START
+                    flashFor(Flash.GO, nowMs)
                     recap = ended
                     recapUntilMs = nowMs + RECAP_MS
                 } else {
@@ -109,6 +122,7 @@ class WorkoutCues {
                         if (!warning || (state.stepPlannedMs ?: 0L) >= MIN_WARNED_STEP_MS) {
                             beeps += if (warning) Beep.WARNING else Beep.TICK
                             pulseUntilMs = nowMs + PULSE_MS
+                            flashFor(Flash.COUNTDOWN, nowMs)
                         }
                     }
                 }
@@ -123,17 +137,25 @@ class WorkoutCues {
         lastComplete = state.complete
 
         val pulse = nowMs < pulseUntilMs
+        val shownFlash = flash?.takeIf { nowMs < flashUntilMs }
         val shownRecap = recap?.takeIf { showRecap && nowMs < recapUntilMs }
         val next = listOfNotNull(
             pulseUntilMs.takeIf { pulse },
+            flashUntilMs.takeIf { shownFlash != null },
             recapUntilMs.takeIf { shownRecap != null },
         ).minOrNull()
         return CueFrame(
             beeps = beeps.filter { if (it == Beep.UNDER || it == Beep.OVER) offTargetBeeps else countdownBeeps },
             pulse = pulse,
+            flash = shownFlash,
             recap = shownRecap,
             nextChangeAtMs = next,
         )
+    }
+
+    private fun flashFor(kind: Flash, nowMs: Long) {
+        flash = kind
+        flashUntilMs = nowMs + FLASH_MS
     }
 
     /** Off target without a break for [OFF_TARGET_AFTER_MS], then every [OFF_TARGET_REPEAT_MS]. */
@@ -171,6 +193,7 @@ class WorkoutCues {
         /** Largest countdown move between two frames that still sounds its cues. */
         const val MAX_STEP_MS = 3_000L
         const val PULSE_MS = 500L
+        const val FLASH_MS = 400L
         const val RECAP_MS = 8_000L
 
         const val OFF_TARGET_AFTER_MS = 15_000L

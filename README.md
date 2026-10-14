@@ -55,8 +55,11 @@ drawer, chip, no fields, a finished workout — are on the
   spans the whole row; with no fields the target and the clock get it all).
 - **Countdown beeps**: a double beep 10 s before an interval ends, a beep at
   5-4-3-2-1 and a long one as the next interval starts (and as the workout
-  ends). The interval bar flashes amber with each beep. Quiet while paused, on
-  open steps, and when you skip.
+  ends). Quiet while paused, on open steps, and when you skip.
+- **Screen flash** with the beeps: a thick amber frame around the workout page
+  (and the drawer) at 10 s and 5-4-3-2-1, green as the next interval starts; on
+  your other pages the chip flashes. It flashes even with the beeps off, and can
+  be turned off itself.
 - **Interval recap**: for 8 s after an interval, a card where the graph is:
   `#3 DONE`, its time in range, average power (or HR / cadence) and length.
 - **Workout summary**: once the workout is done, a row per interval with its

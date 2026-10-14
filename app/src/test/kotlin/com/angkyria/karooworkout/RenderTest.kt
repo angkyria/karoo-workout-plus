@@ -7,6 +7,7 @@ import android.view.View
 import androidx.test.core.app.ApplicationProvider
 import com.angkyria.karooworkout.data.CoreHeat
 import com.angkyria.karooworkout.data.CueFrame
+import com.angkyria.karooworkout.data.Flash
 import com.angkyria.karooworkout.data.RiderProfile
 import com.angkyria.karooworkout.data.WorkoutEngine
 import com.angkyria.karooworkout.data.WorkoutStreams
@@ -176,6 +177,22 @@ class RenderTest {
         val s = ridden(190).copy(stepRemainingMs = 4_000)
         assertDrawn(render("workout-page-pulse", s, cues = CueFrame(pulse = true)))
         render("drawer-pulse", s, Settings(pageMode = PageMode.DRAWER_ONLY), Size.DRAWER, cues = CueFrame(pulse = true))
+    }
+
+    @Test
+    fun screenFlash() {
+        val s = ridden(190).copy(stepRemainingMs = 4_000)
+        val flash = CueFrame(pulse = true, flash = Flash.COUNTDOWN)
+        val page = render("workout-page-flash", s, cues = flash)
+        assertEquals(WorkoutColors.ENDING, page.getPixel(3, page.height / 2))
+        render("drawer-flash", s, Settings(pageMode = PageMode.DRAWER_ONLY), Size.DRAWER, cues = flash)
+        val chip = render("chip-flash", s, Settings(pageMode = PageMode.DRAWER_ONLY), Size.CHIP, cues = flash)
+        assertEquals(WorkoutColors.ENDING, chip.getPixel(chip.width / 2, 2))
+        val go = render("workout-page-flash-go", ridden(190), cues = CueFrame(flash = Flash.GO))
+        assertEquals(WorkoutColors.IN_RANGE, go.getPixel(3, go.height / 2))
+        // the setting off: no frame
+        val off = render("workout-page-flash-off", s, Settings(flashScreen = false), cues = flash)
+        assertEquals(WorkoutColors.PANEL, off.getPixel(3, off.height / 2))
     }
 
     @Test
