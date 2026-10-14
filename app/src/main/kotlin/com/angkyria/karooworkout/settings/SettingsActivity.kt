@@ -143,6 +143,17 @@ private fun SettingsScreen(
         SwitchRow("Show secondary target", settings.showSecondary) { on -> update { it.copy(showSecondary = on) } }
         SwitchRow("Smoothed output", settings.smoothedOutput) { on -> update { it.copy(smoothedOutput = on) } }
 
+        // ---- Alerts ----
+        SectionTitle("Alerts")
+        SwitchRow("Countdown beeps (10 s, 5-4-3-2-1, start)", settings.intervalBeeps) { on ->
+            update { it.copy(intervalBeeps = on) }
+        }
+        SwitchRow("Off-target beeps (after 15 s)", settings.offTargetBeeps) { on ->
+            update { it.copy(offTargetBeeps = on) }
+        }
+        SwitchRow("Interval recap (8 s)", settings.intervalRecap) { on -> update { it.copy(intervalRecap = on) } }
+        Hint("Off target: a low double beep under the range, a high one over it, again every 30 s.")
+
         // ---- Core heat ----
         SectionTitle("Core heat")
         SwitchRow("Core / HSI / skin strip", settings.coreHeatStrip) { on -> update { it.copy(coreHeatStrip = on) } }

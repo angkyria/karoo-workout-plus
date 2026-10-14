@@ -32,6 +32,9 @@ class SettingsRepo(private val context: Context) {
         val opacityPercent = intPreferencesKey("opacity_percent")
         val demoMode = booleanPreferencesKey("demo_mode")
         val pageFields = stringPreferencesKey("page_fields")
+        val intervalBeeps = booleanPreferencesKey("interval_beeps")
+        val offTargetBeeps = booleanPreferencesKey("off_target_beeps")
+        val intervalRecap = booleanPreferencesKey("interval_recap")
     }
 
     val settings: Flow<Settings> = context.dataStore.data.map { it.toSettings() }.distinctUntilChanged()
@@ -59,6 +62,9 @@ class SettingsRepo(private val context: Context) {
             drawerAnchor = enumOr(this[Keys.drawerAnchor], d.drawerAnchor),
             heightPercent = (this[Keys.heightPercent] ?: d.heightPercent).coerceIn(30, 70),
             opacityPercent = (this[Keys.opacityPercent] ?: d.opacityPercent).coerceIn(75, 100),
+            intervalBeeps = this[Keys.intervalBeeps] ?: d.intervalBeeps,
+            offTargetBeeps = this[Keys.offTargetBeeps] ?: d.offTargetBeeps,
+            intervalRecap = this[Keys.intervalRecap] ?: d.intervalRecap,
             demoMode = this[Keys.demoMode] ?: d.demoMode,
             pageFields = this[Keys.pageFields]?.parseFields() ?: d.pageFields,
         )
@@ -78,6 +84,9 @@ class SettingsRepo(private val context: Context) {
         this[Keys.drawerAnchor] = s.drawerAnchor.name
         this[Keys.heightPercent] = s.heightPercent
         this[Keys.opacityPercent] = s.opacityPercent
+        this[Keys.intervalBeeps] = s.intervalBeeps
+        this[Keys.offTargetBeeps] = s.offTargetBeeps
+        this[Keys.intervalRecap] = s.intervalRecap
         this[Keys.demoMode] = s.demoMode
         this[Keys.pageFields] = s.pageFields.joinToString(",") { it.name }
     }

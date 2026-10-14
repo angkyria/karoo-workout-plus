@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
 import com.angkyria.karooworkout.data.CoreHeat
+import com.angkyria.karooworkout.data.CueFrame
 import com.angkyria.karooworkout.data.RiderProfile
 import com.angkyria.karooworkout.data.WorkoutEngine
 import com.angkyria.karooworkout.data.WorkoutStreams
@@ -73,6 +74,7 @@ class RenderTest {
         settings: Settings = Settings(),
         size: Size = Size.FULL,
         sys: Map<String, Map<String, Double>> = sensors + core,
+        cues: CueFrame = CueFrame(),
     ): Bitmap {
         val machine = PanelMachine()
         when (size) {
@@ -83,7 +85,7 @@ class RenderTest {
         }
         assertEquals(size, machine.size)
         val view = WorkoutOverlayView(context, machine)
-        view.update(state, settings, profile, sys)
+        view.update(state, settings, profile, sys, cues)
         val h = when (size) {
             Size.FULL -> SCREEN_H - RIDE_HEADER
             Size.DRAWER -> SCREEN_H * settings.heightPercent / 100
@@ -162,6 +164,36 @@ class RenderTest {
     fun workoutDone() = assertDrawn(
         render("workout-done", ridden(190).copy(complete = true, stepRemainingMs = 0, totalRemainingMs = 0)),
     )
+
+    @Test
+    fun intervalRecap() {
+        val s = ridden(190)
+        assertDrawn(render("workout-page-recap", s, cues = CueFrame(recap = s.history[s.history.size - 2])))
+    }
+
+    @Test
+    fun countdownPulse() {
+        val s = ridden(190).copy(stepRemainingMs = 4_000)
+        assertDrawn(render("workout-page-pulse", s, cues = CueFrame(pulse = true)))
+        render("drawer-pulse", s, Settings(pageMode = PageMode.DRAWER_ONLY), Size.DRAWER, cues = CueFrame(pulse = true))
+    }
+
+    @Test
+    fun workoutSummaryEveryIntervalFits() = assertDrawn(
+        render("workout-summary", ridden(400).copy(complete = true, stepRemainingMs = 0, totalRemainingMs = 0)),
+    )
+
+    @Test
+    fun workoutSummaryTooManyIntervals() {
+        val s = ridden(190)
+        val many = (0 until 14).map { i -> s.history[i % s.history.size].copy(index = i) }
+        assertDrawn(
+            render(
+                "workout-summary-long",
+                s.copy(history = many, stepCount = 14, stepIndex = 13, complete = true, stepRemainingMs = 0, totalRemainingMs = 0),
+            ),
+        )
+    }
 
     @Test
     fun drawer() {

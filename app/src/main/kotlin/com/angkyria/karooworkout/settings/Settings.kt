@@ -164,6 +164,12 @@ data class Settings(
     val heightPercent: Int = 48,
     /** Overlay opacity 75..100. */
     val opacityPercent: Int = 100,
+    /** Countdown beeps: a double beep 10 s before an interval ends, 5-4-3-2-1, a long one at the start. */
+    val intervalBeeps: Boolean = true,
+    /** Beep after 15 s straight under / over the target (then every 30 s). */
+    val offTargetBeeps: Boolean = false,
+    /** Recap card of the interval that just ended, in place of the graph for 8 s. */
+    val intervalRecap: Boolean = true,
     /** Feed a synthetic workout (on-desk testing, no ride or trainer needed). */
     val demoMode: Boolean = false,
     /** The four data-field slots at the bottom of the workout page ([WorkoutField.NONE] = empty). */

@@ -53,6 +53,16 @@ drawer, chip, no fields, a finished workout — are on the
   Workout+'s own **time in range** for the interval and the workout. Set a
   field to **None** to remove it: the rest of the page grows (an odd field out
   spans the whole row; with no fields the target and the clock get it all).
+- **Countdown beeps**: a double beep 10 s before an interval ends, a beep at
+  5-4-3-2-1 and a long one as the next interval starts (and as the workout
+  ends). The interval bar flashes amber with each beep. Quiet while paused, on
+  open steps, and when you skip.
+- **Interval recap**: for 8 s after an interval, a card where the graph is:
+  `#3 DONE`, its time in range, average power (or HR / cadence) and length.
+- **Workout summary**: once the workout is done, a row per interval with its
+  target, your average and its time in range (green from 80 %, amber from 50 %).
+- **Off-target beeps** (off by default): after 15 s straight under the target a
+  low double beep, over it a high one, again every 30 s while it lasts.
 
 Ranges follow Karoo OS: single-value targets get the implied band (power ±5 %,
 heart rate ±7.5 %), and in/out of range is judged on the rounded numbers you

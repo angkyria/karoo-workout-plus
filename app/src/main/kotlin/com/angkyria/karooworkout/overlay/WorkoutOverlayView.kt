@@ -14,6 +14,8 @@ import android.view.MotionEvent
 import android.view.View
 import com.angkyria.karooworkout.R
 import com.angkyria.karooworkout.data.CoreHeat
+import com.angkyria.karooworkout.data.CueFrame
+import com.angkyria.karooworkout.data.IntervalRecord
 import com.angkyria.karooworkout.data.RiderProfile
 import com.angkyria.karooworkout.data.Target
 import com.angkyria.karooworkout.data.TargetKind
@@ -29,6 +31,7 @@ import java.io.File
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * Canvas-drawn workout overlay in the Karoo OS workout-drawer look, three sizes:
@@ -51,6 +54,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
     private var settings = Settings()
     private var profile = RiderProfile()
     private var sysValues: Map<String, Map<String, Double>> = emptyMap()
+    private var cues = CueFrame()
 
     /** Tapping the target flips visual/numeric for this ride; null = the setting. */
     private var displayOverride: TargetDisplay? = null
@@ -170,12 +174,14 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         newSettings: Settings,
         newProfile: RiderProfile,
         newSysValues: Map<String, Map<String, Double>>,
+        newCues: CueFrame = CueFrame(),
     ) {
         if (newSettings.targetDisplay != settings.targetDisplay) displayOverride = null
         state = newState
         settings = newSettings
         profile = newProfile
         sysValues = newSysValues
+        cues = newCues
         val signature = renderSignature(newState)
         if (signature == lastSignature) return
         lastSignature = signature
@@ -201,7 +207,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         val common = listOf(
             machine.size, width, height, settings, display,
             s.stepIndex, s.stepCount, s.stepRemainingMs?.let { (it + 999) / 1000 },
-            s.primary.sig(), s.paused, s.complete,
+            s.primary.sig(), s.paused, s.complete, cues.pulse,
         )
         val rest = when (machine.size) {
             Size.CHIP -> emptyList()
@@ -218,6 +224,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
                 s.secondary.sig(),
                 s.history,
                 s.workoutInRangePercent,
+                cues.recap,
                 profile,
                 machine.pinned(settings.pageMode),
                 settings.pageFields.map { fieldValue(it, s) to fieldColor(it) },
@@ -320,7 +327,8 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         val sections = buildList {
             add(Section.PRIMARY to 22f)
             if (secondary != null) add(Section.SECONDARY to 8f)
-            add(Section.TIMING to 35f)
+            // the finished workout's table needs the room the countdown no longer does
+            add(Section.TIMING to if (s.complete) 55f else 35f)
             if (heat != null) add(Section.CORE_HEAT to 13f)
             if (fieldRows > 0) add(Section.FIELDS to 15f * fieldRows)
         }
@@ -645,8 +653,14 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         // bottom up: the graph or the workout bar, then the interval bar
         var bottom = rect.bottom
         if (withGraph) {
-            val graph = RectF(rect.left, rect.bottom - rect.height() * 0.32f, rect.right, rect.bottom)
-            drawGraph(canvas, graph, s)
+            val share = if (s.complete) 0.64f else 0.32f
+            val graph = RectF(rect.left, rect.bottom - rect.height() * share, rect.right, rect.bottom)
+            val recap = cues.recap
+            when {
+                s.complete -> drawSummary(canvas, graph, s)
+                recap != null -> drawRecap(canvas, graph, recap)
+                else -> drawGraph(canvas, graph, s)
+            }
             bottom = graph.top - rect.height() * 0.05f
         } else {
             val workoutBar = RectF(rect.left, bottom - rect.height() * 0.035f, rect.right, bottom)
@@ -655,7 +669,9 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
             bottom = workoutBar.top - rect.height() * 0.04f
         }
         val bar = RectF(rect.left, bottom - rect.height() * (if (withGraph) 0.04f else 0.06f), rect.right, bottom)
-        drawProgressBar(canvas, bar, if (s.complete) 1f else s.stepProgress ?: 0f)
+        // the countdown's beeps flash the bar
+        val barColor = if (cues.pulse && !s.complete) WorkoutColors.ENDING else WorkoutColors.LILAC
+        drawProgressBar(canvas, bar, if (s.complete) 1f else s.stepProgress ?: 0f, barColor)
 
         // the countdown, as big as its row allows
         val digits = RectF(rect.left, rect.top + headerSize * 1.2f, rect.right, bar.top - rect.height() * 0.035f)
@@ -706,6 +722,121 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         tmp.set(bar.left, bar.top, bar.left + max(bar.height(), bar.width() * fraction), bar.bottom)
         fillPaint.color = color
         canvas.drawRoundRect(tmp, r, r, fillPaint)
+    }
+
+    /** The interval that just ran out, for a few seconds where the graph is: #3 DONE 92% / AVG 258 W 5:00. */
+    private fun drawRecap(canvas: Canvas, area: RectF, rec: IntervalRecord) {
+        val r = area.height() * 0.1f
+        fillPaint.color = WorkoutColors.TRACK
+        canvas.drawRoundRect(area, r, r, fillPaint)
+        val pad = area.height() * 0.12f
+        val inner = RectF(area.left + pad, area.top + pad * 0.6f, area.right - pad, area.bottom - pad * 0.6f)
+        val lineH = inner.height() / 2
+        val size = min(lineH * 0.9f, width * 0.07f)
+
+        fun line(baseline: Float, left: String, right: String, rightColor: Int) {
+            textPaint.textSize = size
+            labelPaint.textSize = size
+            textPaint.textAlign = Paint.Align.RIGHT
+            fitWidth(textPaint, right, inner.width() * 0.45f)
+            textPaint.color = rightColor
+            canvas.drawText(right, inner.right, baseline, textPaint)
+            labelPaint.textAlign = Paint.Align.LEFT
+            fitWidth(labelPaint, left, inner.width() * 0.5f)
+            canvas.drawText(left, inner.left, baseline, labelPaint)
+            textPaint.color = Color.WHITE
+        }
+
+        val pct = rec.inRangePercent
+        line(
+            inner.top + lineH / 2 + capHeight(size) / 2,
+            "#${rec.index + 1} DONE",
+            pct?.let { "$it% IN" } ?: "--",
+            inRangeColor(pct),
+        )
+        val avg = rec.avgOutput?.let { "AVG ${it.roundToInt()}${unitOf(rec.kind)}" } ?: "AVG --"
+        line(inner.top + lineH * 1.5f + capHeight(size) / 2, avg, Format.elapsed(rec.actualMs), Color.WHITE)
+        labelPaint.color = WorkoutColors.LILAC
+    }
+
+    /**
+     * The finished workout, one row an interval: # / TARGET / AVG / IN %. When they
+     * don't all fit, the latest ones show under a "+n EARLIER" line (no scrolling:
+     * swipes change the ride page).
+     */
+    private fun drawSummary(canvas: Canvas, area: RectF, s: WorkoutUiState.Shown) {
+        val r = area.height() * 0.05f
+        fillPaint.color = WorkoutColors.TRACK
+        canvas.drawRoundRect(area, r, r, fillPaint)
+        val pad = width * 0.025f
+        val inner = RectF(area.left + pad, area.top + pad * 0.5f, area.right - pad, area.bottom - pad * 0.5f)
+        val rowH = max(inner.height() / (s.history.size + 1), min(inner.height() / 5, height * 0.042f))
+        val slots = (inner.height() / rowH).toInt() - 1
+        if (slots < 1) return
+        val hidden = (s.history.size - slots).coerceAtLeast(0).let { if (it > 0) it + 1 else 0 }
+        val rows = s.history.drop(hidden)
+        val size = min(rowH * 0.62f, width * 0.06f)
+        // column right edges: # left-aligned, the rest right-aligned
+        val cols = floatArrayOf(0.12f, 0.55f, 0.78f, 1f).map { inner.left + inner.width() * it }
+
+        fun cell(text: String, col: Int, baseline: Float, paint: Paint, color: Int) {
+            paint.textSize = size
+            paint.color = color
+            if (col == 0) {
+                paint.textAlign = Paint.Align.LEFT
+                canvas.drawText(text, inner.left, baseline, paint)
+            } else {
+                paint.textAlign = Paint.Align.RIGHT
+                fitWidth(paint, text, cols[col] - cols[col - 1] - size * 0.3f)
+                canvas.drawText(text, cols[col], baseline, paint)
+            }
+        }
+
+        var baseline = inner.top + rowH / 2 + capHeight(size) / 2
+        listOf("#", "TARGET", "AVG", "IN").forEachIndexed { i, h -> cell(h, i, baseline, labelPaint, WorkoutColors.LILAC) }
+        if (hidden > 0) {
+            baseline += rowH
+            labelPaint.textSize = size
+            labelPaint.textAlign = Paint.Align.LEFT
+            canvas.drawText("+$hidden EARLIER", inner.left, baseline, labelPaint)
+        }
+        for (rec in rows) {
+            baseline += rowH
+            val pct = rec.inRangePercent
+            cell("${rec.index + 1}", 0, baseline, textPaint, Color.WHITE)
+            cell(targetText(rec), 1, baseline, textPaint, Color.WHITE)
+            cell(rec.avgOutput?.roundToInt()?.toString() ?: "—", 2, baseline, textPaint, Color.WHITE)
+            cell(pct?.let { "$it%" } ?: "—", 3, baseline, textPaint, inRangeColor(pct))
+        }
+        textPaint.color = Color.WHITE
+        textPaint.textAlign = Paint.Align.LEFT
+        labelPaint.color = WorkoutColors.LILAC
+        labelPaint.textAlign = Paint.Align.LEFT
+    }
+
+    /** 250-270 for a range; 150 for a single (implied band) value; 137-187 for a ramp's ends. */
+    private fun targetText(rec: IntervalRecord): String {
+        val start = rec.startLevel
+        val end = rec.endLevel
+        if (start != null && end != null && abs(start - end) >= 0.5) return "${start.roundToInt()}-${end.roundToInt()}"
+        val lo = rec.targetMin ?: return "—"
+        val hi = rec.targetMax ?: return "—"
+        return if (rec.targetImplied) ((lo + hi) / 2).roundToInt().toString() else "${lo.roundToInt()}-${hi.roundToInt()}"
+    }
+
+    private fun unitOf(kind: TargetKind?): String = when (kind) {
+        TargetKind.POWER -> " W"
+        TargetKind.HEART_RATE -> " BPM"
+        TargetKind.CADENCE -> " RPM"
+        else -> ""
+    }
+
+    /** In-range share colors: green from 80 %, amber from 50 %, red below. */
+    private fun inRangeColor(pct: Int?): Int = when {
+        pct == null -> WorkoutColors.LILAC_DIM
+        pct >= 80 -> WorkoutColors.IN_RANGE
+        pct >= 50 -> WorkoutColors.ENDING
+        else -> WorkoutColors.OVER
     }
 
     /**

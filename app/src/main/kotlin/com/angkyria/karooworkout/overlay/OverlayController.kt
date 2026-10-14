@@ -12,6 +12,7 @@ import android.view.Gravity
 import android.view.WindowManager
 import com.angkyria.karooworkout.R
 import com.angkyria.karooworkout.WorkoutExtension
+import com.angkyria.karooworkout.data.CueFrame
 import com.angkyria.karooworkout.data.RiderProfile
 import com.angkyria.karooworkout.data.WorkoutUiState
 import com.angkyria.karooworkout.overlay.PanelMachine.Size
@@ -73,6 +74,7 @@ class OverlayController(private val service: WorkoutExtension) {
         settings: Settings,
         profile: RiderProfile,
         sysValues: Map<String, Map<String, Double>>,
+        cues: CueFrame = CueFrame(),
         freshStart: Boolean = false,
     ) {
         if (!workoutActive) {
@@ -95,7 +97,7 @@ class OverlayController(private val service: WorkoutExtension) {
             val created = WorkoutOverlayView(service, machine)
             view = created
             // no relayout hook yet: the view is not attached to the window manager
-            created.update(state, settings, profile, sysValues)
+            created.update(state, settings, profile, sysValues, cues)
             val params = layoutParams(created, settings)
             windowManager.addView(created, params)
             appliedParams = params
@@ -107,7 +109,7 @@ class OverlayController(private val service: WorkoutExtension) {
                 )
             }
         } else {
-            current.update(state, settings, profile, sysValues)
+            current.update(state, settings, profile, sysValues, cues)
             applyLayoutIfChanged(current, settings)
         }
         fieldsVisible.value = view != null && machine.size == Size.FULL

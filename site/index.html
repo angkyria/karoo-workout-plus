@@ -137,12 +137,12 @@
     <div>
       <h1 class="wordmark">Workout<span>+</span></h1>
       <p class="tagline">The Karoo 3 workout layout, on your Karoo 2.</p>
-      <p class="lede">A free extension that takes over the Karoo 2's workout page while a workout runs: the target bar, a big interval countdown with the interval graph, your CORE heat data and the fields you choose. Your other ride pages stay as they are.</p>
+      <p class="lede">A free extension that takes over the Karoo 2's workout page while a workout runs: the target bar, a big interval countdown with beeps and the interval graph, your CORE heat data and the fields you choose. Your other ride pages stay as they are.</p>
       <div class="actions">
         <a class="button primary" href="https://github.com/angkyria/karoo-workout-plus/releases/latest">Download the APK</a>
         <a class="button secondary" href="https://github.com/angkyria/karoo-workout-plus">View the source</a>
       </div>
-      <p class="note">Version 1.0.0. Open source, Apache 2.0. Built on Hammerhead's official extension API, no system changes.</p>
+      <p class="note">Version 1.1.0. Open source, Apache 2.0. Built on Hammerhead's official extension API, no system changes.</p>
     </div>
     <div class="device" aria-hidden="true">
       <div class="screen">
@@ -175,9 +175,15 @@
           <li><button type="button" aria-pressed="false" data-img="workout-page-numeric.png">
             <strong>Numeric target</strong>
             <span>Tap the target to switch between the bar and a plain number.</span></button></li>
-          <li><button type="button" aria-pressed="false" data-img="workout-done.png">
+          <li><button type="button" aria-pressed="false" data-img="workout-page-pulse.png">
+            <strong>The last seconds</strong>
+            <span>The countdown turns amber and the bar flashes with each beep: 10 s, then 5-4-3-2-1.</span></button></li>
+          <li><button type="button" aria-pressed="false" data-img="workout-page-recap.png">
+            <strong>Interval recap</strong>
+            <span>For 8 s after an interval: its time in range, your average and its length.</span></button></li>
+          <li><button type="button" aria-pressed="false" data-img="workout-summary-long.png">
             <strong>Workout done</strong>
-            <span>Your time in range for the whole workout.</span></button></li>
+            <span>Every interval's target, your average and its time in range, plus the whole workout's.</span></button></li>
           <li><button type="button" aria-pressed="false" data-img="drawer.png" data-kind="drawer">
             <strong>The drawer</strong>
             <span>Over any other ride page, if you prefer it by hand.</span></button></li>
@@ -235,6 +241,7 @@ adb shell appops set com.angkyria.karooworkout SYSTEM_ALERT_WINDOW allow</pre>
       <h2>Good to know</h2>
       <div class="facts">
         <div><h3>Your buttons stay yours</h3><p>Workout+ never takes the hardware buttons. Page changes, lap and back work as always, and a swipe changes the page underneath.</p></div>
+        <div><h3>Beeps you can count on</h3><p>A double beep 10 s before an interval ends, then 5-4-3-2-1 and a long beep as the next one starts. Turn on off-target beeps to hear when you've been under or over the target for 15 s. All in the Alerts settings.</p></div>
         <div><h3>Choose your fields</h3><p>Four slots: power, heart rate, cadence, lap and time data, core temperature and more. Set any of them to None to give the rest more room.</p></div>
         <div><h3>Power from your sensor</h3><p>Your power, heart rate or cadence come from the Karoo's workout data, or straight from the sensor when the workout data has none.</p></div>
         <div><h3>CORE heat</h3><p>With a <a href="https://corebodytemp.com">CORE</a> sensor, core temperature, heat strain and skin temperature show in the heat-zone colors. The heat strain comes from the <a href="https://angkyria.github.io/karoo-core/">CORE Heat</a> extension.</p></div>

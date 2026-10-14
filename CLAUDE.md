@@ -18,6 +18,7 @@ Java is not on PATH — every gradle invocation needs:
 
 ```sh
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+export ANDROID_HOME=/opt/homebrew/share/android-commandlinetools  # no local.properties
 ```
 
 - Build:      `./gradlew assembleDebug` → `app/build/outputs/apk/debug/karoo-workout-plus-debug.apk`
@@ -83,6 +84,17 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   optional parts, and uncapped headers collided.
 - Data fields: four slots; `WorkoutField.NONE` empties one. The grid shows the rest
   two a row (an odd one spans the row) and drops its section when all are NONE.
+- **`data/WorkoutCues`** (pure) — interval cues from successive states, all on
+  *crossings* between frames (renders ≤4 Hz, countdown ~1 Hz; a jump > 3 s crosses
+  nothing): `Beep.WARNING` at 10 s (steps ≥ 12 s), `TICK` at 5..1, `START` on a
+  natural end (`IntervalRecord.endedNaturally`, not on skips), the bar `pulse`
+  (500 ms per beep), the 8 s `recap`, and off-target beeps (15 s straight UNDER/OVER
+  after the interval's first 10 s, then every 30 s). `WorkoutExtension` plays them
+  with `PlayBeepPattern` on every page (overlay or not) and re-renders at
+  `nextChangeAtMs` so the pulse / recap end without a stream tick.
+- Finished workout: `WorkoutEngine.holdComplete` keeps the completed state (the
+  summary table) if Karoo drops the workout right after its last interval ran out,
+  until the ride ends or a workout loads. Unverified what Karoo actually does.
 - **`WorkoutPageField`** — the "Workout+ page" graphical data type; a page marker
   (and a countdown under the overlay).
 - **`data/CoreHeat`** — CORE sensor + CORE Heat extension (`TYPE_EXT::coreheat::*`,
@@ -130,6 +142,13 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
 - The ride app's header row (ride time, battery, clock) is 60 px = 32 dp; the system
   status bar is 45 px. The full page starts below the taller of the two.
 - `/system/fonts/IBMPlexSansCondensed-Medium.otf` exists.
+- `PlayBeepPattern` sounds on the Karoo 2 (heard, 1.1 demo mode). Unknown yet
+  whether the native workout also beeps at interval changes (double START beep?).
+- Demo mode puts the full page over everything, the settings screen included —
+  its switch is unreachable then. On a debug build: `adb shell run-as
+  com.angkyria.karooworkout rm files/datastore/settings.preferences_pb` + force-stop.
+- A release-signed install blocks debug installs (signature mismatch): local
+  release builds need `keystore.properties` (storeFile ~/workout-plus.jks).
 
 ## Conventions / gotchas
 

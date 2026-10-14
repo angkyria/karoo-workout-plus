@@ -3,7 +3,9 @@ package com.angkyria.karooworkout
 import android.util.Log
 import com.angkyria.karooworkout.data.CoreHeat
 import com.angkyria.karooworkout.data.RiderProfile
+import com.angkyria.karooworkout.data.Beep
 import com.angkyria.karooworkout.data.StreamHub
+import com.angkyria.karooworkout.data.WorkoutCues
 import com.angkyria.karooworkout.data.WorkoutEngine
 import com.angkyria.karooworkout.data.WorkoutPage
 import com.angkyria.karooworkout.data.WorkoutStreams
@@ -19,9 +21,11 @@ import io.hammerhead.karooext.KarooSystemService
 import io.hammerhead.karooext.extension.KarooExtension
 import io.hammerhead.karooext.models.ActiveRidePage
 import io.hammerhead.karooext.models.DataType
+import io.hammerhead.karooext.models.PlayBeepPattern
 import io.hammerhead.karooext.models.RideState
 import io.hammerhead.karooext.models.UserProfile
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -49,6 +53,7 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
     private lateinit var overlay: OverlayController
     private lateinit var hub: StreamHub
     private val engine = WorkoutEngine()
+    private val cues = WorkoutCues()
     private val demo = DemoWorkout()
 
     private val rideState = MutableStateFlow<RideState>(RideState.Idle)
@@ -60,6 +65,10 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
     private var settings = Settings()
     private var lastPageMode: PageMode? = null
     private var lastStreamLogMs = 0L
+    private var lastInputs: Inputs? = null
+
+    /** Renders again when a drawn cue ends by itself (pulse, recap), with no stream tick to do it. */
+    private var cueRefresh: Job? = null
 
     /** At least one RideState event arrived (the flow's initial Idle is just a default). */
     @Volatile private var rideStateKnown = false
@@ -181,6 +190,7 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
     )
 
     private fun render(i: Inputs) {
+        lastInputs = i
         val s = i.settings
         settings = s
         if (lastPageMode != null && lastPageMode != s.pageMode) overlay.onModeChanged(s)
@@ -205,6 +215,17 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
         }
         fieldText.value = (state as? WorkoutUiState.Shown)?.let(::fieldTextFor) ?: IDLE_FIELD_TEXT
 
+        // cues sound on every page, overlay or not
+        val cue = cues.update(state, now, s.intervalBeeps, s.offTargetBeeps, s.intervalRecap)
+        cue.beeps.forEach(::play)
+        cueRefresh?.cancel()
+        cueRefresh = cue.nextChangeAtMs?.let { at ->
+            scope.launch {
+                delay((at - System.currentTimeMillis()).coerceAtLeast(0) + 20)
+                lastInputs?.let(::render)
+            }
+        }
+
         // Arm the "fresh start" only on a no-workout state we actually observed (ride
         // known idle, or the gate streaming without a workout) — not the blank state
         // of a service that just (re)started mid-workout.
@@ -219,10 +240,15 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
         if (state is WorkoutUiState.Shown && s.overlayEnabled) {
             // demo adds a synthetic CORE reading; a real sensor's values win
             val sysValues = if (s.demoMode) demo.coreHeat() + i.values else i.values
-            overlay.show(state, s, i.profile, sysValues, freshStart)
+            overlay.show(state, s, i.profile, sysValues, cue, freshStart)
         } else {
             overlay.hide()
         }
+    }
+
+    private fun play(beep: Beep) {
+        Log.d(TAG, "beep $beep")
+        karooSystem.dispatch(PlayBeepPattern(beep.tones.map { (hz, ms) -> PlayBeepPattern.Tone(hz, ms) }))
     }
 
     /** What the Workout+ ride-page field shows beneath the overlay. */

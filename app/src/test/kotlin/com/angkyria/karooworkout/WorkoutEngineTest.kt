@@ -304,4 +304,54 @@ class WorkoutEngineTest {
         val state = engine.update(WorkoutSnapshot(stepCount = 0), 0, false, true)
         assertEquals(WorkoutUiState.Hidden, state)
     }
+
+    // ------------------------------------------------------- cues & summary
+
+    @Test
+    fun intervalsKeepTheirAverageOutputAndTarget() {
+        val engine = WorkoutEngine()
+        engine.tick(snap(0, 3_000, primary = power(200.0, 220.0, 200.0)))
+        engine.tick(snap(0, 2_000, primary = power(200.0, 220.0, 200.0)))
+        val s = engine.tick(snap(0, 1_000, primary = power(200.0, 220.0, 230.0)))
+        val rec = s.current!!
+        assertEquals(215.0, rec.avgOutput!!, 1e-9)
+        assertEquals(200.0, rec.targetMin!!, 1e-9)
+        assertEquals(220.0, rec.targetMax!!, 1e-9)
+        assertFalse(rec.targetImplied)
+    }
+
+    @Test
+    fun aStepThatRanOutEndedNaturallyASkipDidNot() {
+        val engine = WorkoutEngine()
+        engine.tick(snap(0, 2_000))
+        engine.tick(snap(0, 1_000))
+        val after = engine.tick(snap(1, 30_000))
+        assertTrue(after.history[0].endedNaturally)
+        val skipped = engine.tick(snap(2, 60_000))
+        assertFalse(skipped.history[1].endedNaturally)
+    }
+
+    @Test
+    fun aFinishedWorkoutStaysUpWhenKarooDropsIt() {
+        val engine = WorkoutEngine()
+        engine.tick(snap(4, 2_000, 2_000))
+        engine.tick(snap(4, 1_000, 1_000))
+        val held = engine.update(WorkoutSnapshot(stepCount = 0), 5_000, false, true) as WorkoutUiState.Shown
+        assertTrue(held.complete)
+        assertTrue(held.current!!.endedNaturally)
+        assertEquals(2_000L, held.current!!.actualMs)
+        // still there on the next empty snapshot
+        assertTrue((engine.update(WorkoutSnapshot(stepCount = 0), 6_000, false, true) as WorkoutUiState.Shown).complete)
+        // a new workout replaces it
+        val next = engine.tick(snap(0, 60_000))
+        assertEquals(1, next.history.size)
+        assertFalse(next.complete)
+    }
+
+    @Test
+    fun aWorkoutStoppedMidwayIsGone() {
+        val engine = WorkoutEngine()
+        engine.tick(snap(2, 40_000))
+        assertEquals(WorkoutUiState.Hidden, engine.update(WorkoutSnapshot(stepCount = 0), 0, false, true))
+    }
 }

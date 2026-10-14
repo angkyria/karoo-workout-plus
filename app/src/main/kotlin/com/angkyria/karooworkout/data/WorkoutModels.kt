@@ -77,6 +77,14 @@ data class IntervalRecord(
     val inRangeMs: Long,
     val underMs: Long,
     val overMs: Long,
+    /** Time-weighted mean of the primary output, null while none streamed. */
+    val avgOutput: Double? = null,
+    /** The primary target as last seen (the range Karoo or the implied band gave). */
+    val targetMin: Double? = null,
+    val targetMax: Double? = null,
+    val targetImplied: Boolean = false,
+    /** The countdown ran out (vs. skipped, rewound or still running). */
+    val endedNaturally: Boolean = false,
 ) {
     val trackedMs: Long get() = inRangeMs + underMs + overMs
 

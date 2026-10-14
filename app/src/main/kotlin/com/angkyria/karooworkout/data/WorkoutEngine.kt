@@ -23,6 +23,11 @@ class WorkoutEngine {
         var underMs: Long = 0,
         var overMs: Long = 0,
     ) {
+        var outputSum = 0.0
+        var outputMs = 0L
+        var target: Target? = null
+        var endedNaturally = false
+
         /** The interval ramps: its target value moves between min and max. */
         var ramp = false
 
@@ -33,6 +38,11 @@ class WorkoutEngine {
 
         fun snapshot() = IntervalRecord(
             index, plannedMs, actualMs, kind, startLevel, endLevel, inRangeMs, underMs, overMs,
+            avgOutput = if (outputMs > 0) outputSum / outputMs else null,
+            targetMin = target?.min,
+            targetMax = target?.max,
+            targetImplied = target?.implied ?: false,
+            endedNaturally = endedNaturally,
         )
 
         fun restart(remainingMs: Long) {
@@ -40,6 +50,9 @@ class WorkoutEngine {
             inRangeMs = 0
             underMs = 0
             overMs = 0
+            outputSum = 0.0
+            outputMs = 0
+            endedNaturally = false
             plannedMs = remainingMs
             startLevel = null
             endLevel = null
@@ -92,6 +105,11 @@ class WorkoutEngine {
     private var lastStepRemaining: Long? = null
     private var lastTickMs: Long? = null
     private var lastStatus: TargetStatus? = null
+    private var lastOutput: Double? = null
+    private var lastShown: WorkoutUiState.Shown? = null
+
+    /** Karoo dropped the workout right after it ran out: the summary stays up. */
+    private var holdingComplete = false
     private var workoutInRangeMs = 0L
     private var workoutTrackedMs = 0L
 
@@ -105,6 +123,9 @@ class WorkoutEngine {
         lastStepRemaining = null
         lastTickMs = null
         lastStatus = null
+        lastOutput = null
+        lastShown = null
+        holdingComplete = false
         workoutInRangeMs = 0
         workoutTrackedMs = 0
     }
@@ -116,9 +137,11 @@ class WorkoutEngine {
         smoothedOutput: Boolean,
     ): WorkoutUiState {
         if (!s.loaded) {
+            holdComplete()?.let { return it }
             reset()
             return WorkoutUiState.Hidden
         }
+        if (holdingComplete) reset()
         val index = s.stepIndex!!.coerceIn(0, s.stepCount - 1)
         val prevIndex = lastIndex
         if (s.stepCount != stepCount ||
@@ -139,7 +162,8 @@ class WorkoutEngine {
                 val prev = records[last]
                 val lastRem = lastStepRemaining
                 if (prev != null && lastRem != null && lastRem <= NATURAL_END_MS) {
-                    credit(prev, lastRem, lastStatus)
+                    credit(prev, lastRem, lastStatus, lastOutput)
+                    prev.endedNaturally = true
                 }
             }
         }
@@ -164,9 +188,10 @@ class WorkoutEngine {
         }
 
         val delta = tickDelta(index == last, s.stepRemainingMs, nowMs, paused)
-        if (delta > 0) credit(rec, delta, primary?.status)
+        if (delta > 0) credit(rec, delta, primary?.status, primary?.output)
         s.stepRemainingMs?.let { rem -> rec.plannedMs = max(rec.plannedMs ?: 0L, rec.actualMs + rem) }
         primary?.let {
+            rec.target = it
             if (rec.startLevel == null) rec.startLevel = it.value
             if (!rec.rampEndsKnown) rec.endLevel = it.value
             if (rec.kind == null || rec.kind == TargetKind.UNKNOWN) rec.kind = it.kind
@@ -176,9 +201,12 @@ class WorkoutEngine {
         lastStepRemaining = s.stepRemainingMs
         lastTickMs = nowMs
         lastStatus = primary?.status
+        lastOutput = primary?.output
 
-        val history = records.values.map { it.snapshot() }
         val onLastStep = index == s.stepCount - 1
+        val complete = onLastStep && s.stepRemainingMs == 0L && (s.totalRemainingMs ?: 0L) == 0L
+        if (complete) rec.endedNaturally = true
+        val history = records.values.map { it.snapshot() }
         return WorkoutUiState.Shown(
             stepIndex = index,
             stepCount = s.stepCount,
@@ -193,8 +221,36 @@ class WorkoutEngine {
             workoutInRangePercent =
                 if (workoutTrackedMs <= 0) null else (workoutInRangeMs * 100 / workoutTrackedMs).toInt(),
             paused = paused,
-            complete = onLastStep && s.stepRemainingMs == 0L && (s.totalRemainingMs ?: 0L) == 0L,
-        )
+            complete = complete,
+        ).also { lastShown = it }
+    }
+
+    /**
+     * The workout vanished from the streams. Right after its last interval ran out
+     * (or once DONE showed) that is Karoo closing a finished workout: keep the
+     * completed state, the summary, until the ride ends or a workout loads.
+     */
+    private fun holdComplete(): WorkoutUiState.Shown? {
+        val shown = lastShown ?: return null
+        if (holdingComplete) return shown
+        val lastRem = lastStepRemaining
+        val ranOut = shown.stepIndex == shown.stepCount - 1 && lastRem != null && lastRem <= NATURAL_END_MS
+        if (!shown.complete && !ranOut) return null
+        records[shown.stepIndex]?.let { rec ->
+            if (!shown.complete && lastRem != null) credit(rec, lastRem, lastStatus, lastOutput)
+            rec.endedNaturally = true
+        }
+        holdingComplete = true
+        lastStepRemaining = 0
+        return shown.copy(
+            stepRemainingMs = 0,
+            totalRemainingMs = 0,
+            history = records.values.map { it.snapshot() },
+            workoutInRangePercent =
+                if (workoutTrackedMs <= 0) null else (workoutInRangeMs * 100 / workoutTrackedMs).toInt(),
+            paused = false,
+            complete = true,
+        ).also { lastShown = it }
     }
 
     /** Milliseconds of workout time since the previous tick of the same step. */
@@ -214,8 +270,12 @@ class WorkoutEngine {
         return 0
     }
 
-    private fun credit(rec: Rec, ms: Long, status: TargetStatus?) {
+    private fun credit(rec: Rec, ms: Long, status: TargetStatus?, output: Double?) {
         rec.actualMs += ms
+        if (output != null) {
+            rec.outputSum += output * ms
+            rec.outputMs += ms
+        }
         when (status) {
             TargetStatus.IN_RANGE -> {
                 rec.inRangeMs += ms
