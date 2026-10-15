@@ -7,7 +7,7 @@
 ![Karoo 3](https://img.shields.io/badge/Karoo%203-untested-lightgrey)
 
 **Website: [angkyria.github.io/karoo-workout-plus](https://angkyria.github.io/karoo-workout-plus/)**\
-**Download: [Workout+ 1.0.0](https://github.com/angkyria/karoo-workout-plus/releases/latest)** (`karoo-workout-plus.apk`)
+**Download: [Workout+ 1.2.0](https://github.com/angkyria/karoo-workout-plus/releases/latest)** (`karoo-workout-plus.apk`)
 
 The new Karoo OS workout layout, as a free, open-source extension for the
 **Hammerhead Karoo 2**. The Karoo 3 got a purple workout drawer — target bar,
@@ -102,7 +102,7 @@ to any page of your own.
 ## Installation
 
 1. Download `karoo-workout-plus.apk` from the
-   [latest release](https://github.com/angkyria/karoo-workout-plus/releases/latest) (1.0.0).
+   [latest release](https://github.com/angkyria/karoo-workout-plus/releases/latest) (1.2.0).
 2. Enable Developer Options + USB debugging on the Karoo
    ([Hammerhead guide](https://support.hammerhead.io/hc/en-us/articles/30696553134363)).
 3. Install and allow the overlay:
@@ -114,7 +114,7 @@ to any page of your own.
 
 Coming from a 0.1.0 test build? Those were debug-signed: remove it first with
 `adb uninstall com.angkyria.karooworkout` (this resets the Workout+ settings).
-Later releases install over 1.0.0 with `adb install -r`.
+Later releases install over 1.0.0 and up with `adb install -r`.
 
 Turn on **Demo mode** in the settings to see the layout without a ride or trainer.
 
@@ -123,6 +123,19 @@ Every push also builds a debug APK, attached to its
 signed with a throwaway debug key, so it only installs after an uninstall.
 
 ## Releases
+
+**1.2.0** — the screen flashes with the countdown beeps: an amber frame at 10 s
+and at 5-4-3-2-1, a green one as the next interval starts (on another page the
+chip flashes instead). Setting: *Flash the screen with the beeps*.
+[Release page](https://github.com/angkyria/karoo-workout-plus/releases/tag/v1.2.0).
+
+**1.1.0** — interval beeps: a double beep 10 s before an interval ends, then
+5-4-3-2-1 and a long beep as the next one starts, with the interval bar pulsing.
+An 8 s recap of the interval that just ended (time in range, average) in the
+graph area, a per-interval summary table when the workout is done, and optional
+off-target beeps (15 s under or over the target, then every 30 s). All in the new
+*Alerts* settings.
+[Release page](https://github.com/angkyria/karoo-workout-plus/releases/tag/v1.1.0).
 
 **1.0.0** — the first release, signed, past testing on a Karoo 2: the workout
 page with interval and workout in one block, readable CORE row and data fields
