@@ -7,7 +7,7 @@
 ![Karoo 3](https://img.shields.io/badge/Karoo%203-untested-lightgrey)
 
 **Website: [angkyria.github.io/karoo-workout-plus](https://angkyria.github.io/karoo-workout-plus/)**\
-**Download: [Workout+ 1.2.0](https://github.com/angkyria/karoo-workout-plus/releases/latest)** (`karoo-workout-plus.apk`)
+**Download: [Workout+ 1.3.0](https://github.com/angkyria/karoo-workout-plus/releases/latest)** (`karoo-workout-plus.apk`)
 
 The new Karoo OS workout layout, as a free, open-source extension for the
 **Hammerhead Karoo 2**. The Karoo 3 got a purple workout drawer — target bar,
@@ -36,7 +36,12 @@ drawer, chip, no fields, a finished workout — are on the
   above. Tap it to switch to the numeric style.
 - **Ramps** (warm-ups, ramp tests) hold you to the ramp's *current* value, not
   the whole 137–187 W span, and are drawn as slopes in the graph.
-- **Secondary target** (power / HR / cadence) as a compact row.
+- **Secondary target** (power / HR / cadence) as a compact row. A workout's
+  cadence target shows there even when Karoo only streams it on its cadence
+  target stream.
+- **Power average** for power targets: 3 s, 5 s or 10 s (settings → *Power
+  target average*). 5 s and 10 s come from your power meter's average and the
+  header says so: `POWER 10S`.
 - **Interval and workout in one block**: `INTERVAL 3 OF 9` with the workout's
   time left (and its scale when it isn't 100 %) on top, a huge interval
   countdown (amber in the last 5 s, `PAUSED` beside it while the ride is
@@ -102,7 +107,7 @@ to any page of your own.
 ## Installation
 
 1. Download `karoo-workout-plus.apk` from the
-   [latest release](https://github.com/angkyria/karoo-workout-plus/releases/latest) (1.2.0).
+   [latest release](https://github.com/angkyria/karoo-workout-plus/releases/latest) (1.3.0).
 2. Enable Developer Options + USB debugging on the Karoo
    ([Hammerhead guide](https://support.hammerhead.io/hc/en-us/articles/30696553134363)).
 3. Install and allow the overlay:
@@ -123,6 +128,11 @@ Every push also builds a debug APK, attached to its
 signed with a throwaway debug key, so it only installs after an uninstall.
 
 ## Releases
+
+**1.3.0** — choose how power targets are averaged: 3 s, 5 s or 10 s (the header
+reads `POWER 5S` / `POWER 10S`); a workout's cadence target shows as the second
+target even when Karoo only streams it on its cadence target stream.
+[Release page](https://github.com/angkyria/karoo-workout-plus/releases/tag/v1.3.0).
 
 **1.2.0** — the screen flashes with the countdown beeps: an amber frame at 10 s
 and at 5-4-3-2-1, a green one as the next interval starts (on another page the

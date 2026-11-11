@@ -1,6 +1,7 @@
 package com.angkyria.karooworkout.settings
 
 import com.angkyria.karooworkout.data.CoreHeat
+import com.angkyria.karooworkout.data.PowerAverage
 import io.hammerhead.karooext.models.DataType
 
 /** How the overlay relates to the ride app's pages. Listed in the settings in this order. */
@@ -156,6 +157,8 @@ data class Settings(
     val showSecondary: Boolean = true,
     /** Judge and show the smoothed output Karoo streams with the target (vs. instant). */
     val smoothedOutput: Boolean = true,
+    /** The smoothed output of a power target: 3 s (Karoo's workout output), 5 s or 10 s average. */
+    val powerAverage: PowerAverage = PowerAverage.S3,
     /** Core / heat index / skin strip on the workout page whenever a CORE sensor streams. */
     val coreHeatStrip: Boolean = true,
     val chipAnchor: OverlayAnchor = OverlayAnchor.BOTTOM,

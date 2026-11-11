@@ -1,5 +1,6 @@
 package com.angkyria.karooworkout
 
+import com.angkyria.karooworkout.data.PowerAverage
 import com.angkyria.karooworkout.data.TargetKind
 import com.angkyria.karooworkout.data.WorkoutStreams
 import io.hammerhead.karooext.models.DataType
@@ -129,6 +130,53 @@ class WorkoutStreamsTest {
             setOf(DataType.Type.POWER),
             WorkoutStreams.liveStreams(setOf(TargetKind.POWER), smoothed = false),
         )
+    }
+
+    @Test
+    fun powerAverageReadsTheChosenSmoothedPowerStream() {
+        val live = raw + mapOf(
+            DataType.Type.SMOOTHED_3S_AVERAGE_POWER to mapOf(DataType.Field.SMOOTHED_3S_AVERAGE_POWER to 226.0),
+            DataType.Type.SMOOTHED_5S_AVERAGE_POWER to mapOf(DataType.Field.SMOOTHED_5S_AVERAGE_POWER to 221.0),
+            DataType.Type.SMOOTHED_10S_AVERAGE_POWER to mapOf(DataType.Field.SMOOTHED_10S_AVERAGE_POWER to 214.0),
+        )
+        assertEquals(226.0, WorkoutStreams.snapshot(live).live.getValue(TargetKind.POWER).smoothed!!, 1e-9)
+        assertEquals(221.0, WorkoutStreams.snapshot(live, PowerAverage.S5).live.getValue(TargetKind.POWER).smoothed!!, 1e-9)
+        assertEquals(214.0, WorkoutStreams.snapshot(live, PowerAverage.S10).live.getValue(TargetKind.POWER).smoothed!!, 1e-9)
+        assertEquals(
+            setOf(DataType.Type.SMOOTHED_10S_AVERAGE_POWER, DataType.Type.SMOOTHED_3S_AVERAGE_CADENCE),
+            WorkoutStreams.liveStreams(setOf(TargetKind.POWER, TargetKind.CADENCE), smoothed = true, PowerAverage.S10),
+        )
+    }
+
+    @Test
+    fun cadenceTargetFromItsOwnStreamWhenTheSecondaryStreamsAreSilent() {
+        val withCadence = raw + mapOf(
+            DataType.Type.WORKOUT_CADENCE_TARGET to mapOf(
+                DataType.Field.WORKOUT_TARGET_VALUE to 95.0,
+                DataType.Field.WORKOUT_TARGET_MIN_VALUE to 90.0,
+                DataType.Field.WORKOUT_TARGET_MAX_VALUE to 100.0,
+            ),
+        )
+        val secondary = WorkoutStreams.snapshot(withCadence).secondary!!
+        assertEquals(95.0, secondary.value!!, 1e-9)
+        assertEquals(90.0, secondary.min!!, 1e-9)
+        assertEquals(100.0, secondary.max!!, 1e-9)
+        assertNull(secondary.output)
+        // no cadence target in this step: no secondary
+        assertNull(WorkoutStreams.snapshot(raw).secondary)
+    }
+
+    @Test
+    fun aRealSecondaryTargetWinsOverTheCadenceStream() {
+        val both = raw + mapOf(
+            DataType.Type.WORKOUT_SECONDARY_TARGET to mapOf(
+                DataType.Field.WORKOUT_TARGET_VALUE to 150.0,
+                DataType.Field.WORKOUT_TARGET_MIN_VALUE to 140.0,
+                DataType.Field.WORKOUT_TARGET_MAX_VALUE to 160.0,
+            ),
+            DataType.Type.WORKOUT_CADENCE_TARGET to mapOf(DataType.Field.WORKOUT_TARGET_VALUE to 95.0),
+        )
+        assertEquals(150.0, WorkoutStreams.snapshot(both).secondary!!.value!!, 1e-9)
     }
 
     @Test

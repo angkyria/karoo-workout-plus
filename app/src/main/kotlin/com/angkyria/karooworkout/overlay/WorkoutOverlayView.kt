@@ -204,7 +204,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
      * battery). Must mirror onDraw: anything drawn that can change belongs here.
      */
     private fun renderSignature(s: WorkoutUiState.Shown): List<Any?> {
-        fun Target?.sig() = this?.let { listOf(it.kind, Format.range(it), Format.output(it), it.status) }
+        fun Target?.sig() = this?.let { listOf(it.kind, it.averageSeconds, Format.range(it), Format.output(it), it.status) }
         val common = listOf(
             machine.size, width, height, settings, display,
             s.stepIndex, s.stepCount, s.stepRemainingMs?.let { (it + 999) / 1000 },
@@ -441,6 +441,12 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         else -> workoutIcon
     }
 
+    /** POWER, or POWER 10S when the output is the rider's 5 / 10 s average. */
+    private fun targetLabel(t: Target?): String {
+        val kind = t?.kind?.label ?: return "FREE RIDE"
+        return t.averageSeconds?.let { "$kind ${it}S" } ?: kind
+    }
+
     /** Header row: [icon] LABEL on the left, (target) range on the right. */
     private fun drawTargetHeader(canvas: Canvas, rect: RectF, t: Target?, size: Float) {
         val baseline = rect.top + size * 0.95f
@@ -452,7 +458,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         textPaint.textSize = size
         textPaint.textAlign = Paint.Align.LEFT
         textPaint.color = Color.WHITE
-        canvas.drawText(t?.kind?.label ?: "FREE RIDE", x, baseline, textPaint)
+        canvas.drawText(targetLabel(t), x, baseline, textPaint)
         if (t == null) return
         textPaint.textAlign = Paint.Align.RIGHT
         val range = Format.range(t)
@@ -463,7 +469,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
 
     /** Header text size: capped by the screen width, then shrunk until label and range fit. */
     private fun targetHeaderSize(rect: RectF, t: Target?): Float {
-        val label = t?.kind?.label ?: "FREE RIDE"
+        val label = targetLabel(t)
         val range = t?.let { Format.range(it) }
         fun need(size: Float): Float {
             textPaint.textSize = size
@@ -593,7 +599,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         }
         labelPaint.textSize = size
         labelPaint.textAlign = Paint.Align.LEFT
-        canvas.drawText(t.kind.label, x, baseline, labelPaint)
+        canvas.drawText(targetLabel(t), x, baseline, labelPaint)
 
         textPaint.textSize = size
         textPaint.textAlign = Paint.Align.RIGHT

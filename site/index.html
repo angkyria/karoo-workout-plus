@@ -142,7 +142,7 @@
         <a class="button primary" href="https://github.com/angkyria/karoo-workout-plus/releases/latest">Download the APK</a>
         <a class="button secondary" href="https://github.com/angkyria/karoo-workout-plus">View the source</a>
       </div>
-      <p class="note">Version 1.2.0. Open source, Apache 2.0. Built on Hammerhead's official extension API, no system changes.</p>
+      <p class="note">Version 1.3.0. Open source, Apache 2.0. Built on Hammerhead's official extension API, no system changes.</p>
     </div>
     <div class="device" aria-hidden="true">
       <div class="screen">
@@ -166,6 +166,9 @@
           <li><button type="button" aria-pressed="false" data-img="workout-page-cadence-paused.png">
             <strong>A cadence target, ride paused</strong>
             <span>Secondary targets get their own row; the workout scale shows when it isn't 100 %.</span></button></li>
+          <li><button type="button" aria-pressed="false" data-img="workout-page-power-10s.png">
+            <strong>10 s power, cadence target</strong>
+            <span>Pick a 3, 5 or 10 s power average; the header tells you which. A cadence target gets its own row.</span></button></li>
           <li><button type="button" aria-pressed="false" data-img="workout-page-two-fields.png">
             <strong>Two fields</strong>
             <span>Set a field to None and it's gone: the rest of the page grows.</span></button></li>
@@ -220,6 +223,7 @@
     <div class="wrap">
       <h2>What's new</h2>
       <div class="facts">
+        <div><h3>1.3.0 &middot; Power average and cadence</h3><p>Choose how a power target is averaged: 3 s, 5 s or 10 s, and the header reads <em>POWER 10S</em> so you know. A workout's cadence target now shows as the second target whenever the workout has one.</p></div>
         <div><h3>1.2.0 &middot; Screen flash</h3><p>The screen flashes with the beeps: an amber frame at 10 s and at 5-4-3-2-1, green as the next interval starts. On other ride pages the chip flashes instead. Turn it off with <em>Flash the screen with the beeps</em>.</p></div>
         <div><h3>1.1.0 &middot; Beeps, recap and summary</h3><p>Countdown beeps with a pulsing interval bar, an 8 s recap of each finished interval in the graph area, a per-interval table when the workout is done, and optional off-target beeps.</p></div>
       </div>
@@ -256,7 +260,7 @@ adb shell appops set com.angkyria.karooworkout SYSTEM_ALERT_WINDOW allow</pre>
         <div><h3>Your buttons stay yours</h3><p>Workout+ never takes the hardware buttons. Page changes, lap and back work as always, and a swipe changes the page underneath.</p></div>
         <div><h3>Beeps you can count on</h3><p>A double beep 10 s before an interval ends, then 5-4-3-2-1 and a long beep as the next one starts, and the screen flashes with each. Turn on off-target beeps to hear when you've been under or over the target for 15 s. All in the Alerts settings.</p></div>
         <div><h3>Choose your fields</h3><p>Four slots: power, heart rate, cadence, lap and time data, core temperature and more. Set any of them to None to give the rest more room.</p></div>
-        <div><h3>Power from your sensor</h3><p>Your power, heart rate or cadence come from the Karoo's workout data, or straight from the sensor when the workout data has none.</p></div>
+        <div><h3>Power from your sensor</h3><p>Your power, heart rate or cadence come from the Karoo's workout data, or straight from the sensor when the workout data has none. Power targets follow a 3, 5 or 10 s average, your choice.</p></div>
         <div><h3>CORE heat</h3><p>With a <a href="https://corebodytemp.com">CORE</a> sensor, core temperature, heat strain and skin temperature show in the heat-zone colors. The heat strain comes from the <a href="https://angkyria.github.io/karoo-core/">CORE Heat</a> extension.</p></div>
         <div><h3>Pause and skip stay on the Karoo</h3><p>The extension API can't pause or skip a workout, so those stay on the Karoo's own controls. Workout+ shows the result, and PAUSED while the ride is paused.</p></div>
         <div><h3>Intervals as you ride them</h3><p>The Karoo shares the running interval only, so the graph fills in as you ride. What's still to come is hatched.</p></div>

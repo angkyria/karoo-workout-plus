@@ -1,5 +1,6 @@
 package com.angkyria.karooworkout.settings
 
+import com.angkyria.karooworkout.data.PowerAverage
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -142,6 +143,13 @@ private fun SettingsScreen(
         }
         SwitchRow("Show secondary target", settings.showSecondary) { on -> update { it.copy(showSecondary = on) } }
         SwitchRow("Smoothed output", settings.smoothedOutput) { on -> update { it.copy(smoothedOutput = on) } }
+        if (settings.smoothedOutput) {
+            SectionTitle("Power target average")
+            PowerAverage.entries.forEach { avg ->
+                RadioRow(avg.label, settings.powerAverage == avg) { update { it.copy(powerAverage = avg) } }
+            }
+            Hint("When power is the target, its number and color follow this average.")
+        }
 
         // ---- Alerts ----
         SectionTitle("Alerts")

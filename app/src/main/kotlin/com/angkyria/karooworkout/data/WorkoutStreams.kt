@@ -40,15 +40,13 @@ object WorkoutStreams {
     private class Sensor(val typeId: String, val field: String)
 
     /**
-     * The rider's own sensor streams per kind, instant and 3 s smoothed. Karoo's workout
-     * output stream is the first choice, but only these are proven to stream on every
-     * Karoo, so they fill in whenever it gives no output.
+     * The rider's own sensor streams per kind, instant and smoothed (power: the chosen
+     * [PowerAverage], cadence 3 s). Karoo's workout output stream is the first choice,
+     * but only these are proven to stream on every Karoo, so they fill in whenever it
+     * gives no output — and carry the 5 / 10 s power averages it doesn't have.
      */
-    private val liveSensors = mapOf(
-        TargetKind.POWER to (
-            Sensor(DataType.Type.POWER, DataType.Field.POWER) to
-                Sensor(DataType.Type.SMOOTHED_3S_AVERAGE_POWER, DataType.Field.SMOOTHED_3S_AVERAGE_POWER)
-            ),
+    private fun liveSensors(power: PowerAverage) = mapOf(
+        TargetKind.POWER to (Sensor(DataType.Type.POWER, DataType.Field.POWER) to powerSensors.getValue(power)),
         TargetKind.HEART_RATE to (
             Sensor(DataType.Type.HEART_RATE, DataType.Field.HEART_RATE) to
                 Sensor(DataType.Type.HEART_RATE, DataType.Field.HEART_RATE)
@@ -59,17 +57,31 @@ object WorkoutStreams {
             ),
     )
 
+    /** Karoo's power average stream for each [PowerAverage]. */
+    private val powerSensors = mapOf(
+        PowerAverage.S3 to Sensor(DataType.Type.SMOOTHED_3S_AVERAGE_POWER, DataType.Field.SMOOTHED_3S_AVERAGE_POWER),
+        PowerAverage.S5 to Sensor(DataType.Type.SMOOTHED_5S_AVERAGE_POWER, DataType.Field.SMOOTHED_5S_AVERAGE_POWER),
+        PowerAverage.S10 to Sensor(DataType.Type.SMOOTHED_10S_AVERAGE_POWER, DataType.Field.SMOOTHED_10S_AVERAGE_POWER),
+    )
+
     /** Every sensor stream [liveStreams] may run (for the diagnostics). */
-    val LIVE: Set<String> = liveSensors.values.flatMap { listOf(it.first.typeId, it.second.typeId) }.toSet()
+    val LIVE: Set<String> = PowerAverage.entries
+        .flatMap { avg -> liveSensors(avg).values.flatMap { listOf(it.first.typeId, it.second.typeId) } }
+        .toSet()
 
     /** The sensor streams worth running for a workout that targets [kinds]: one per kind. */
-    fun liveStreams(kinds: Set<TargetKind>, smoothed: Boolean): Set<String> =
-        kinds.mapNotNull { kind ->
-            liveSensors[kind]?.let { (instant, smooth) -> if (smoothed) smooth.typeId else instant.typeId }
+    fun liveStreams(kinds: Set<TargetKind>, smoothed: Boolean, power: PowerAverage = PowerAverage.S3): Set<String> {
+        val sensors = liveSensors(power)
+        return kinds.mapNotNull { kind ->
+            sensors[kind]?.let { (instant, smooth) -> if (smoothed) smooth.typeId else instant.typeId }
         }.toSet()
+    }
 
-    /** Fold the latest field values (keyed by data type id) into a snapshot. */
-    fun snapshot(raw: Map<String, Map<String, Double>>): WorkoutSnapshot {
+    /**
+     * Fold the latest field values (keyed by data type id) into a snapshot; a power
+     * sensor's smoothed value is the [power] average.
+     */
+    fun snapshot(raw: Map<String, Map<String, Double>>, power: PowerAverage = PowerAverage.S3): WorkoutSnapshot {
         val count = raw[GATE].orEmpty()
         val stepRemaining = raw[DataType.Type.WORKOUT_REMAINING_INTERVAL_DURATION]
             ?.get(DataType.Field.WORKOUT_TIME_TO_STEP_FINISH)
@@ -104,9 +116,12 @@ object WorkoutStreams {
                 ),
                 raw,
             ),
-            secondary = rawTarget(
-                raw[DataType.Type.WORKOUT_SECONDARY_TARGET],
-                raw[DataType.Type.WORKOUT_SECONDARY_TARGET_OUTPUT_VALUE],
+            secondary = withCadenceFallback(
+                rawTarget(
+                    raw[DataType.Type.WORKOUT_SECONDARY_TARGET],
+                    raw[DataType.Type.WORKOUT_SECONDARY_TARGET_OUTPUT_VALUE],
+                ),
+                raw,
             ),
             scalePercent = difficulty?.let(::scalePercent),
             kindValues = kindStreams.mapNotNull { (kind, typeId) ->
@@ -114,7 +129,7 @@ object WorkoutStreams {
                     ?.takeIf { it > 0 }
                     ?.let { kind to it }
             }.toMap(),
-            live = liveSensors.mapNotNull { (kind, sensors) ->
+            live = liveSensors(power).mapNotNull { (kind, sensors) ->
                 fun read(sensor: Sensor) = raw[sensor.typeId]?.get(sensor.field)?.takeIf { it.isFinite() }
                 val instant = read(sensors.first)
                 val smoothed = read(sensors.second)
@@ -154,16 +169,32 @@ object WorkoutStreams {
         val kind = PRIMARY_FALLBACKS.firstNotNullOfOrNull { typeId ->
             raw[typeId]?.takeIf { (it[DataType.Field.WORKOUT_TARGET_VALUE] ?: 0.0) > 0 }
         } ?: return primary
-        return RawTarget(
-            type = primary?.type,
-            value = kind[DataType.Field.WORKOUT_TARGET_VALUE],
-            min = kind[DataType.Field.WORKOUT_TARGET_MIN_VALUE],
-            max = kind[DataType.Field.WORKOUT_TARGET_MAX_VALUE],
-            output = primary?.output,
-            outputSmoothed = primary?.outputSmoothed,
-            rampType = primary?.rampType,
-        )
+        return primary.withTargetFrom(kind)
     }
+
+    /**
+     * The secondary target is the one cadence can be (the primary never is). Its
+     * streams may stay silent like the primary's do without a sensor: take a cadence
+     * target from the cadence target stream then.
+     */
+    private fun withCadenceFallback(secondary: RawTarget?, raw: Map<String, Map<String, Double>>): RawTarget? {
+        if (secondary != null && secondary.hasTarget) return secondary
+        val cadence = raw[DataType.Type.WORKOUT_CADENCE_TARGET]
+            ?.takeIf { (it[DataType.Field.WORKOUT_TARGET_VALUE] ?: 0.0) > 0 }
+            ?: return secondary
+        return secondary.withTargetFrom(cadence)
+    }
+
+    /** The target fields from a per-kind target stream, keeping whatever output we have. */
+    private fun RawTarget?.withTargetFrom(kind: Map<String, Double>) = RawTarget(
+        type = this?.type,
+        value = kind[DataType.Field.WORKOUT_TARGET_VALUE],
+        min = kind[DataType.Field.WORKOUT_TARGET_MIN_VALUE],
+        max = kind[DataType.Field.WORKOUT_TARGET_MAX_VALUE],
+        output = this?.output,
+        outputSmoothed = this?.outputSmoothed,
+        rampType = this?.rampType,
+    )
 
     private val RawTarget.hasTarget: Boolean
         get() = (value ?: 0.0) > 0 || (max ?: 0.0) > 0

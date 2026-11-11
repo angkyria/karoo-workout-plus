@@ -132,7 +132,7 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
                     emptySet()
                 } else {
                     WorkoutStreams.DETAIL.toSet() +
-                        WorkoutStreams.liveStreams(snapshot.kindValues.keys, s.smoothedOutput)
+                        WorkoutStreams.liveStreams(snapshot.kindValues.keys, s.smoothedOutput, s.powerAverage)
                 }
             }
                 .distinctUntilChanged()
@@ -199,12 +199,15 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
         val now = System.currentTimeMillis()
         val raw = if (s.demoMode) i.demoRaw else i.values
         val state = when {
-            s.demoMode -> engine.update(WorkoutStreams.snapshot(raw), now, paused = false, s.smoothedOutput)
+            s.demoMode ->
+                engine.update(WorkoutStreams.snapshot(raw, s.powerAverage), now, paused = false, s.smoothedOutput, s.powerAverage)
             !i.ride.active -> {
                 engine.reset()
                 WorkoutUiState.Hidden
             }
-            else -> engine.update(WorkoutStreams.snapshot(raw), now, i.ride is RideState.Paused, s.smoothedOutput)
+            else -> engine.update(
+                WorkoutStreams.snapshot(raw, s.powerAverage), now, i.ride is RideState.Paused, s.smoothedOutput, s.powerAverage,
+            )
         }
         val workoutRaw = raw.filterKeys { it.startsWith(WORKOUT_TYPE_PREFIX) || it in WorkoutStreams.LIVE }
         Diagnostics.workoutStreams.value = workoutRaw

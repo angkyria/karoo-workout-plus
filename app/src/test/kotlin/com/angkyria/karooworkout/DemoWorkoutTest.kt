@@ -1,5 +1,6 @@
 package com.angkyria.karooworkout
 
+import com.angkyria.karooworkout.data.PowerAverage
 import com.angkyria.karooworkout.data.TargetKind
 import com.angkyria.karooworkout.data.TargetStatus
 import com.angkyria.karooworkout.data.WorkoutEngine
@@ -41,5 +42,21 @@ class DemoWorkoutTest {
         val shown = last!!
         assertEquals(shown.stepIndex + 1, shown.history.size)
         assertEquals(499_000L, shown.elapsedMs)
+    }
+
+    @Test
+    fun demoPowerFollowsTheChosenAverage() {
+        val demo = DemoWorkout(ftp = 250)
+        repeat(30) { demo.tick(1000) }
+        fun primary(avg: PowerAverage) = (
+            WorkoutEngine().update(WorkoutStreams.snapshot(demo.raw(), avg), 0, false, true, avg)
+                as WorkoutUiState.Shown
+            ).primary!!
+        val five = primary(PowerAverage.S5)
+        val ten = primary(PowerAverage.S10)
+        assertEquals(5, five.averageSeconds)
+        assertEquals(10, ten.averageSeconds)
+        assertTrue(five.output != ten.output)
+        assertEquals(null, primary(PowerAverage.S3).averageSeconds)
     }
 }

@@ -135,6 +135,7 @@ class WorkoutEngine {
         nowMs: Long,
         paused: Boolean,
         smoothedOutput: Boolean,
+        powerAverage: PowerAverage = PowerAverage.S3,
     ): WorkoutUiState {
         if (!s.loaded) {
             holdComplete()?.let { return it }
@@ -179,12 +180,13 @@ class WorkoutEngine {
         // Karoo: the primary target is HR or power, the secondary HR, power or cadence
         s.primary?.let { rec.observe(it) }
         val primaryKind = s.primary?.let { resolveKind(it, s.kindValues, exclude = setOf(TargetKind.CADENCE)) }
+        val average = powerAverage.takeIf { smoothedOutput && it != PowerAverage.S3 }
         val primary = s.primary?.let {
-            resolve(it.withLive(primaryKind, s.live), primaryKind ?: TargetKind.UNKNOWN, smoothedOutput, rec.ramp)
+            resolveLive(it, primaryKind ?: TargetKind.UNKNOWN, s.live, smoothedOutput, average, rec.ramp)
         }
         val secondary = s.secondary?.let {
             val kind = resolveKind(it, s.kindValues, exclude = setOfNotNull(primaryKind))
-            resolve(it.withLive(kind, s.live), kind, smoothedOutput)
+            resolveLive(it, kind, s.live, smoothedOutput, average)
         }
 
         val delta = tickDelta(index == last, s.stepRemainingMs, nowMs, paused)
@@ -295,13 +297,28 @@ class WorkoutEngine {
     }
 
     /**
-     * Karoo holds its workout output stream in SEARCHING at times (always without the
-     * sensor; unverified with it): take the output from the rider's own sensor stream then.
+     * [resolve] with the rider's sensor streams: a 5 / 10 s power [average] (Karoo's
+     * workout output only has its own smoothing) whenever its stream has a value, and
+     * any kind's sensor output when Karoo holds its workout output in SEARCHING
+     * (always without the sensor; unverified with it).
      */
-    private fun RawTarget.withLive(kind: TargetKind?, live: Map<TargetKind, LiveOutput>): RawTarget {
-        if (output != null || outputSmoothed != null) return this
-        val sensor = kind?.let { live[it] } ?: return this
-        return copy(output = sensor.instant, outputSmoothed = sensor.smoothed)
+    private fun resolveLive(
+        raw: RawTarget,
+        kind: TargetKind,
+        live: Map<TargetKind, LiveOutput>,
+        smoothedOutput: Boolean,
+        average: PowerAverage?,
+        ramp: Boolean = false,
+    ): Target? {
+        val sensor = live[kind]
+        val averaged = sensor?.smoothed?.takeIf { kind == TargetKind.POWER && average != null }
+        val input = when {
+            averaged != null -> raw.copy(outputSmoothed = averaged, output = raw.output ?: sensor.instant)
+            raw.output != null || raw.outputSmoothed != null || sensor == null -> raw
+            else -> raw.copy(output = sensor.instant, outputSmoothed = sensor.smoothed)
+        }
+        return resolve(input, kind, smoothedOutput, ramp)
+            ?.let { t -> if (averaged != null) t.copy(averageSeconds = average!!.seconds) else t }
     }
 
     /**

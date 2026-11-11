@@ -1,6 +1,7 @@
 package com.angkyria.karooworkout
 
 import com.angkyria.karooworkout.data.LiveOutput
+import com.angkyria.karooworkout.data.PowerAverage
 import com.angkyria.karooworkout.data.RawTarget
 import com.angkyria.karooworkout.data.TargetKind
 import com.angkyria.karooworkout.data.TargetStatus
@@ -73,6 +74,46 @@ class WorkoutEngineTest {
     fun karoosWorkoutOutputWinsOverTheSensorStream() {
         val s = snap(0, 60_000).copy(live = mapOf(TargetKind.POWER to LiveOutput(instant = 300.0, smoothed = 300.0)))
         assertEquals(210.0, WorkoutEngine().tick(s).primary!!.output!!, 1e-9)
+    }
+
+    @Test
+    fun fiveAndTenSecondPowerComeFromTheSensorAverage() {
+        // Karoo's workout output is its own (3 s) smoothing: a longer average needs the sensor stream
+        val s = snap(0, 60_000).copy(live = mapOf(TargetKind.POWER to LiveOutput(instant = 300.0, smoothed = 232.0)))
+        for (avg in listOf(PowerAverage.S5, PowerAverage.S10)) {
+            val t = (WorkoutEngine().update(s, 0, false, smoothedOutput = true, avg) as WorkoutUiState.Shown).primary!!
+            assertEquals(232.0, t.output!!, 1e-9)
+            assertEquals(TargetStatus.OVER, t.status)
+            assertEquals(avg.seconds, t.averageSeconds)
+        }
+        val three = WorkoutEngine().update(s, 0, false, smoothedOutput = true, PowerAverage.S3) as WorkoutUiState.Shown
+        assertEquals(210.0, three.primary!!.output!!, 1e-9)
+        assertNull(three.primary!!.averageSeconds)
+        // instant output: no average at all
+        val instant = WorkoutEngine().update(s, 0, false, smoothedOutput = false, PowerAverage.S10) as WorkoutUiState.Shown
+        assertEquals(210.0, instant.primary!!.output!!, 1e-9)
+        assertNull(instant.primary!!.averageSeconds)
+    }
+
+    @Test
+    fun aLongerPowerAverageWithoutItsStreamKeepsKaroosOutput() {
+        val t = (WorkoutEngine().update(snap(0, 60_000), 0, false, smoothedOutput = true, PowerAverage.S10)
+            as WorkoutUiState.Shown).primary!!
+        assertEquals(210.0, t.output!!, 1e-9)
+        assertNull(t.averageSeconds)
+    }
+
+    @Test
+    fun powerAverageLeavesACadenceSecondaryAlone() {
+        val cadence = RawTarget(value = 95.0, min = 90.0, max = 100.0)
+        val s = snap(0, 60_000, secondary = cadence, kinds = mapOf(TargetKind.POWER to 210.0, TargetKind.CADENCE to 95.0))
+            .copy(live = mapOf(TargetKind.CADENCE to LiveOutput(instant = 84.0, smoothed = 86.0)))
+        val shown = WorkoutEngine().update(s, 0, false, smoothedOutput = true, PowerAverage.S10) as WorkoutUiState.Shown
+        val secondary = shown.secondary!!
+        assertEquals(TargetKind.CADENCE, secondary.kind)
+        assertEquals(86.0, secondary.output!!, 1e-9)
+        assertEquals(TargetStatus.UNDER, secondary.status)
+        assertNull(secondary.averageSeconds)
     }
 
     @Test

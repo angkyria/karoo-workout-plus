@@ -126,8 +126,14 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   carries the target, so `WorkoutStreams` falls back to the per-kind streams.
 - The workout output stream was never verified with the power meter **on**, and the
   rider reported no power on the page: a missing output falls back to the sensor
-  streams (`WorkoutStreams.liveStreams`: 3 s or instant power, HR, cadence — one per
-  targeted kind). The 10 s `streams` log and the diagnostics panel show both.
+  streams (`WorkoutStreams.liveStreams`: averaged or instant power, HR, cadence — one
+  per targeted kind). The 10 s `streams` log and the diagnostics panel show both.
+- Power average (setting `powerAverage`, 3 / 5 / 10 s, with smoothed output on): 3 s
+  keeps Karoo's workout output first; 5 / 10 s take `SMOOTHED_5S/10S_AVERAGE_POWER`
+  from the sensor whenever it has a value (`Target.averageSeconds` → "POWER 10S").
+- Cadence as the secondary target: if the secondary streams carry no target,
+  `WorkoutStreams` takes it from `WORKOUT_CADENCE_TARGET` (like the primary's
+  per-kind fallback). Unverified which stream a real cadence step uses.
 - Hardware keys (`/system/usr/keylayout/gpio-keys.kl`, `qpnp_pon.kl`): top left/right
   = NAVIGATE_PREVIOUS / NAVIGATE_NEXT, bottom left = BACK, bottom right = NAVIGATE_IN.
 - `PerformHardwareAction` injects its key into the **focused window**: a focusable

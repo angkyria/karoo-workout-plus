@@ -11,6 +11,16 @@ enum class TargetKind(val label: String, val impliedRangeFraction: Double) {
     UNKNOWN("TARGET", 0.05),
 }
 
+/**
+ * How a power target's output is averaged: Karoo's own power average streams.
+ * Entry names are persisted in DataStore — never rename them.
+ */
+enum class PowerAverage(val seconds: Int, val label: String) {
+    S3(3, "3 s"),
+    S5(5, "5 s"),
+    S10(10, "10 s"),
+}
+
 /** Where the rider's output sits against the target range (native colors: blue / green / red). */
 enum class TargetStatus { UNDER, IN_RANGE, OVER, NO_DATA }
 
@@ -61,6 +71,8 @@ data class Target(
     val ramp: Boolean,
     val output: Double?,
     val status: TargetStatus,
+    /** The output is the rider's N-second power average (5 / 10 s), not Karoo's workout output. */
+    val averageSeconds: Int? = null,
 )
 
 /** One interval of the workout as ridden so far. */

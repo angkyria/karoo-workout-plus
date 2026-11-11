@@ -122,6 +122,14 @@ class RenderTest {
         assertDrawn(render("workout-page-cadence-paused", ridden(215).copy(paused = true, scalePercent = 105)))
 
     @Test
+    fun tenSecondPowerWithACadenceTarget() {
+        // the cadence step of the demo (215 s in), power on the rider's 10 s average
+        val s = ridden(215)
+        val tenS = s.copy(primary = s.primary!!.copy(averageSeconds = 10))
+        assertDrawn(render("workout-page-power-10s", tenS))
+    }
+
+    @Test
     fun numericTarget() =
         assertDrawn(render("workout-page-numeric", ridden(190), Settings(targetDisplay = TargetDisplay.NUMERIC)))
 

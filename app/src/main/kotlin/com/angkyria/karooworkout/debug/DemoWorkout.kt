@@ -63,26 +63,46 @@ class DemoWorkout(private val ftp: Int = 250) {
         )
     }
 
-    fun raw(): Map<String, Map<String, Double>> {
+    /** The step at [atMs] into the workout, and when it started. */
+    private fun stepAt(atMs: Long): Pair<Int, Long> {
         var startMs = 0L
         var index = 0
-        while (startMs + steps[index].seconds * 1000L <= positionMs) {
+        while (startMs + steps[index].seconds * 1000L <= atMs) {
             startMs += steps[index].seconds * 1000L
             index++
         }
+        return index to startMs
+    }
+
+    /** Target center at [atMs] (ramps climb across their step). */
+    private fun centerAt(atMs: Long): Double {
+        val (index, startMs) = stepAt(atMs)
+        val step = steps[index]
+        val low = ftp * step.lowPct / 100.0
+        val high = ftp * step.highPct / 100.0
+        return if (step.ramp) low + (high - low) * (atMs - startMs) / (step.seconds * 1000L) else (low + high) / 2
+    }
+
+    /** Two slow waves around the target: drifts below, through and above the band. */
+    private fun powerAt(atMs: Long): Double {
+        val t = atMs / 1000.0
+        return centerAt(atMs) * (1 + 0.11 * sin(t / 6.0) + 0.04 * sin(t / 1.7))
+    }
+
+    /** Karoo's N-second power average: the last N one-second samples. */
+    private fun averagePower(seconds: Int): Double =
+        (0 until seconds).map { powerAt((positionMs - it * 1000L).coerceAtLeast(0)) }.average()
+
+    fun raw(): Map<String, Map<String, Double>> {
+        val (index, startMs) = stepAt(positionMs)
         val step = steps[index]
         val stepMs = step.seconds * 1000L
         val stepRemaining = startMs + stepMs - positionMs
         val low = ftp * step.lowPct / 100.0
         val high = ftp * step.highPct / 100.0
-        val center = if (step.ramp) {
-            low + (high - low) * (positionMs - startMs) / stepMs
-        } else {
-            (low + high) / 2
-        }
+        val center = centerAt(positionMs)
         val t = positionMs / 1000.0
-        // two slow waves: drifts below, through and above the band
-        val power = center * (1 + 0.11 * sin(t / 6.0) + 0.04 * sin(t / 1.7))
+        val power = powerAt(positionMs)
         val cadence = 88 + 9 * sin(t / 9.0)
 
         val target = { value: Double, lo: Double, hi: Double, out: Double ->
@@ -121,6 +141,20 @@ class DemoWorkout(private val ftp: Int = 250) {
                     DataType.Field.WORKOUT_TARGET_VALUE to center,
                     DataType.Field.WORKOUT_DIFFICULTY to 1.0,
                 ),
+            )
+            // the rider's power meter, like the sensor streams Karoo runs beside the workout
+            put(DataType.Type.POWER, mapOf(DataType.Field.POWER to power))
+            put(
+                DataType.Type.SMOOTHED_3S_AVERAGE_POWER,
+                mapOf(DataType.Field.SMOOTHED_3S_AVERAGE_POWER to averagePower(3)),
+            )
+            put(
+                DataType.Type.SMOOTHED_5S_AVERAGE_POWER,
+                mapOf(DataType.Field.SMOOTHED_5S_AVERAGE_POWER to averagePower(5)),
+            )
+            put(
+                DataType.Type.SMOOTHED_10S_AVERAGE_POWER,
+                mapOf(DataType.Field.SMOOTHED_10S_AVERAGE_POWER to averagePower(10)),
             )
             step.cadence?.let { rpm ->
                 put(
