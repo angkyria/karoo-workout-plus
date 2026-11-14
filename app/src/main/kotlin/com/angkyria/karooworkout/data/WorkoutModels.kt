@@ -123,6 +123,8 @@ sealed interface WorkoutUiState {
         val workoutInRangePercent: Int?,
         val paused: Boolean,
         val complete: Boolean,
+        /** The interval list under the current one; null until the plan tracker has run. */
+        val next: NextList? = null,
     ) : WorkoutUiState {
         val current: IntervalRecord? get() = history.lastOrNull()
 
