@@ -2,6 +2,9 @@ package com.angkyria.karooworkout
 
 import android.util.Log
 import com.angkyria.karooworkout.data.CoreHeat
+import com.angkyria.karooworkout.data.KarooLibrary
+import com.angkyria.karooworkout.data.LibraryWorkout
+import com.angkyria.karooworkout.data.PlanTracker
 import com.angkyria.karooworkout.data.RiderProfile
 import com.angkyria.karooworkout.data.Beep
 import com.angkyria.karooworkout.data.StreamHub
@@ -24,6 +27,7 @@ import io.hammerhead.karooext.models.DataType
 import io.hammerhead.karooext.models.PlayBeepPattern
 import io.hammerhead.karooext.models.RideState
 import io.hammerhead.karooext.models.UserProfile
+import java.util.Calendar
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +59,8 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
     private val engine = WorkoutEngine()
     private val cues = WorkoutCues()
     private val demo = DemoWorkout()
+    private val tracker = PlanTracker()
+    private lateinit var library: KarooLibrary
 
     private val rideState = MutableStateFlow<RideState>(RideState.Idle)
     private val profile = MutableStateFlow(RiderProfile())
@@ -73,6 +79,19 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
     /** At least one RideState event arrived (the flow's initial Idle is just a default). */
     @Volatile private var rideStateKnown = false
 
+    /** Bumped whenever a new workout may be running; a library read is made once per generation. */
+    private var workoutGeneration = 0
+    private var readGeneration = -1
+    private var workoutShown = false
+    private var shownStepCount: Int? = null
+    private var shownDemo = false
+
+    /** This service saw the running workout begin (kept for the whole workout). */
+    private var watchedStartForWorkout = false
+    private var libraryWorkouts: List<LibraryWorkout>? = null
+    private var libraryRead = false
+    private var diagMatched: String? = null
+
     /** We watched the workout begin, so Karoo's silent jump to its workout page happened. */
     private var freshStartArmed = false
 
@@ -85,6 +104,7 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
         karooSystem = KarooSystemService(applicationContext)
         settingsRepo = SettingsRepo(applicationContext)
         overlay = OverlayController(this)
+        library = KarooLibrary(applicationContext)
         overlay.start()
         hub = StreamHub(karooSystem)
 
@@ -204,6 +224,7 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
                 engine.update(WorkoutStreams.snapshot(raw, s.powerAverage), now, paused = false, s.smoothedOutput, s.powerAverage)
             !i.ride.active -> {
                 engine.reset()
+                tracker.reset()
                 WorkoutUiState.Hidden
             }
             else -> engine.update(
@@ -241,14 +262,94 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
             freshStartArmed = true
         }
 
+        trackWorkout(state, s, freshStart)
+
         if (state is WorkoutUiState.Shown && s.overlayEnabled) {
             // demo adds a synthetic CORE reading; a real sensor's values win
             val sysValues = if (s.demoMode) demo.coreHeat() + i.values else i.values
-            overlay.show(state, s, i.profile, sysValues, cue, freshStart)
+            val shown = if (s.intervalList) {
+                state.copy(next = tracker.update(state, watchedStartForWorkout, startOfTodayMs()))
+                    .also { updateLibraryDiagnostics() }
+            } else {
+                state.copy(next = null)
+            }
+            overlay.show(shown, s, i.profile, sysValues, cue, freshStart)
         } else {
             overlay.hide()
         }
     }
+
+    /**
+     * Keeps the plan tracker in step with the workout: a new workout (Hidden in
+     * between, a changed step count, demo toggled) starts a new generation, and the
+     * library is read once per generation.
+     */
+    private fun trackWorkout(state: WorkoutUiState, s: Settings, freshStart: Boolean) {
+        if (state !is WorkoutUiState.Shown) {
+            if (workoutShown || shownDemo != s.demoMode) newGeneration()
+            workoutShown = false
+            shownStepCount = null
+            shownDemo = s.demoMode
+            watchedStartForWorkout = false
+            return
+        }
+        if (!workoutShown) {
+            workoutShown = true
+            watchedStartForWorkout = freshStart
+        } else if (shownStepCount != state.stepCount || shownDemo != s.demoMode) {
+            newGeneration()
+        }
+        shownStepCount = state.stepCount
+        shownDemo = s.demoMode
+        if (!s.intervalList || readGeneration == workoutGeneration) return
+        readGeneration = workoutGeneration
+        if (s.demoMode) {
+            onLibrary(listOf(demo.libraryWorkout()))
+        } else {
+            val generation = workoutGeneration
+            scope.launch {
+                val workouts = library.read()
+                if (generation != workoutGeneration) return@launch // a newer workout owns the tracker
+                onLibrary(workouts)
+                lastInputs?.let(::render)
+            }
+        }
+    }
+
+    private fun newGeneration() {
+        workoutGeneration++
+        tracker.reset()
+        libraryRead = false
+        diagMatched = null
+    }
+
+    private fun onLibrary(workouts: List<LibraryWorkout>?) {
+        libraryWorkouts = workouts
+        libraryRead = true
+        tracker.onLibrary(workouts)
+        diagMatched = null
+        updateLibraryDiagnostics(force = true)
+    }
+
+    private fun updateLibraryDiagnostics(force: Boolean = false) {
+        if (!libraryRead) return
+        val name = tracker.matched?.name
+        if (!force && name == diagMatched) return
+        diagMatched = name
+        val all = libraryWorkouts
+        Diagnostics.library.value = when {
+            all == null -> "read failed"
+            name != null -> "${all.size} workouts, matched: $name"
+            else -> "${all.size} workouts, no match"
+        }
+    }
+
+    private fun startOfTodayMs(): Long = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
 
     private fun play(beep: Beep) {
         Log.d(TAG, "beep $beep")

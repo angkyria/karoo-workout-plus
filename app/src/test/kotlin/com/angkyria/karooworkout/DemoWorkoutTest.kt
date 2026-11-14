@@ -1,6 +1,8 @@
 package com.angkyria.karooworkout
 
+import com.angkyria.karooworkout.data.PlanMatcher
 import com.angkyria.karooworkout.data.PowerAverage
+import com.angkyria.karooworkout.data.RunObservation
 import com.angkyria.karooworkout.data.TargetKind
 import com.angkyria.karooworkout.data.TargetStatus
 import com.angkyria.karooworkout.data.WorkoutEngine
@@ -58,5 +60,33 @@ class DemoWorkoutTest {
         assertEquals(10, ten.averageSeconds)
         assertTrue(five.output != ten.output)
         assertEquals(null, primary(PowerAverage.S3).averageSeconds)
+    }
+
+    @Test
+    fun `demo library workout matches the demo run`() {
+        val demo = DemoWorkout(ftp = 250)
+        val engine = WorkoutEngine()
+        val states = (0 until 5).map { second ->
+            val s = engine.update(WorkoutStreams.snapshot(demo.raw()), second * 1000L, false, true) as WorkoutUiState.Shown
+            demo.tick(1000)
+            s
+        }
+        fun run(s: WorkoutUiState.Shown, watchedStart: Boolean) = RunObservation(
+            stepCount = s.stepCount,
+            stepIndex = s.stepIndex,
+            stepRemainingMs = s.stepRemainingMs,
+            totalRemainingMs = s.totalRemainingMs,
+            elapsedMs = s.elapsedMs,
+            watchedStart = watchedStart,
+            targetMin = s.primary?.min,
+            targetMax = s.primary?.max,
+            targetImplied = s.primary?.implied ?: false,
+            scalePercent = s.scalePercent,
+        )
+        val library = listOf(demo.libraryWorkout())
+        // a watched start matches on the first frames (the first countdown is still the step's length)
+        assertTrue(PlanMatcher.match(library, run(states[1], watchedStart = true), 0L) != null)
+        // and a run picked up mid-way matches as well
+        assertTrue(PlanMatcher.match(library, run(states[4], watchedStart = false), 0L) != null)
     }
 }

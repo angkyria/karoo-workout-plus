@@ -26,6 +26,7 @@ class SettingsRepo(private val context: Context) {
         val showSecondary = booleanPreferencesKey("show_secondary")
         val smoothedOutput = booleanPreferencesKey("smoothed_output")
         val powerAverage = stringPreferencesKey("power_average")
+        val intervalList = booleanPreferencesKey("interval_list")
         val coreHeatStrip = booleanPreferencesKey("core_heat_strip")
         val chipAnchor = stringPreferencesKey("chip_anchor")
         val drawerAnchor = stringPreferencesKey("drawer_anchor")
@@ -61,6 +62,7 @@ class SettingsRepo(private val context: Context) {
             showSecondary = this[Keys.showSecondary] ?: d.showSecondary,
             smoothedOutput = this[Keys.smoothedOutput] ?: d.smoothedOutput,
             powerAverage = enumOr(this[Keys.powerAverage], d.powerAverage),
+            intervalList = this[Keys.intervalList] ?: d.intervalList,
             coreHeatStrip = this[Keys.coreHeatStrip] ?: d.coreHeatStrip,
             chipAnchor = enumOr(this[Keys.chipAnchor], d.chipAnchor),
             drawerAnchor = enumOr(this[Keys.drawerAnchor], d.drawerAnchor),
@@ -86,6 +88,7 @@ class SettingsRepo(private val context: Context) {
         this[Keys.showSecondary] = s.showSecondary
         this[Keys.smoothedOutput] = s.smoothedOutput
         this[Keys.powerAverage] = s.powerAverage.name
+        this[Keys.intervalList] = s.intervalList
         this[Keys.coreHeatStrip] = s.coreHeatStrip
         this[Keys.chipAnchor] = s.chipAnchor.name
         this[Keys.drawerAnchor] = s.drawerAnchor.name

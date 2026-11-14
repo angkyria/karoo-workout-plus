@@ -160,6 +160,8 @@ data class Settings(
     val smoothedOutput: Boolean = true,
     /** The smoothed output of a power target: 3 s (Karoo's workout output), 5 s or 10 s average. */
     val powerAverage: PowerAverage = PowerAverage.S3,
+    /** Interval list on the workout page: upcoming and finished intervals, read from the Karoo's workout library. */
+    val intervalList: Boolean = true,
     /** Core / heat index / skin strip on the workout page whenever a CORE sensor streams. */
     val coreHeatStrip: Boolean = true,
     val chipAnchor: OverlayAnchor = OverlayAnchor.BOTTOM,

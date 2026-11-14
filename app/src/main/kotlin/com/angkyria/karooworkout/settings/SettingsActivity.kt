@@ -134,6 +134,11 @@ private fun SettingsScreen(
             }
         }
 
+        SwitchRow("Interval list on the workout page", settings.intervalList) { on ->
+            update { it.copy(intervalList = on) }
+        }
+        Hint("Scroll the workout page for the upcoming and finished intervals. Read from the Karoo's workout library.")
+
         // ---- Target ----
         SectionTitle("Workout target field")
         RadioRow("Visual", settings.targetDisplay == TargetDisplay.VISUAL) {
@@ -244,8 +249,10 @@ private fun DiagnosticsPanel() {
     val streams by Diagnostics.workoutStreams.collectAsState()
     val page by Diagnostics.page.collectAsState()
     val hardware by Diagnostics.hardware.collectAsState()
+    val library by Diagnostics.library.collectAsState()
     val mono = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp)
     Text("Device: ${hardware ?: "not connected"}", style = mono)
+    Text("Library: ${library ?: "not read yet"}", style = mono)
     Text(
         page?.let { (ids, workout) ->
             "Ride page (workout page: $workout):\n" + ids.joinToString("\n") { "  ${it.short()}" }

@@ -15,5 +15,8 @@ object Diagnostics {
     /** Data type ids on the ride page currently on screen, and whether it counts as the workout page. */
     val page = MutableStateFlow<Pair<List<String>, Boolean>?>(null)
 
+    /** The workout library read: how many workouts and which one matched, or why it failed. */
+    val library = MutableStateFlow<String?>(null)
+
     val hardware = MutableStateFlow<String?>(null)
 }

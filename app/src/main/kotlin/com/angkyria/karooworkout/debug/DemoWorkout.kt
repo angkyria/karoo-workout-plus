@@ -1,6 +1,10 @@
 package com.angkyria.karooworkout.debug
 
 import com.angkyria.karooworkout.data.CoreHeat
+import com.angkyria.karooworkout.data.LibraryEntry
+import com.angkyria.karooworkout.data.LibraryTarget
+import com.angkyria.karooworkout.data.LibraryWorkout
+import com.angkyria.karooworkout.data.TargetKind
 import com.angkyria.karooworkout.data.WorkoutStreams
 import io.hammerhead.karooext.models.DataType
 import kotlin.math.sin
@@ -38,6 +42,34 @@ class DemoWorkout(private val ftp: Int = 250) {
 
     private val totalMs = steps.sumOf { it.seconds } * 1000L
     private var positionMs = 0L
+
+    /**
+     * The demo's own steps as a library workout, so the interval list shows a plan
+     * in demo mode. Ranged steps carry their range; a single-value step carries
+     * none (the stream gives Karoo's implied band there, which is never compared).
+     */
+    fun libraryWorkout(): LibraryWorkout = LibraryWorkout(
+        id = "demo",
+        name = "Demo workout",
+        plannedDateMs = null,
+        updatedAtMs = null,
+        structure = steps.mapIndexed { i, step ->
+            val low = ftp * step.lowPct / 100.0
+            val high = ftp * step.highPct / 100.0
+            val single = step.lowPct == step.highPct
+            LibraryEntry.Step(
+                name = "Demo ${i + 1}",
+                lengthMs = step.seconds * 1000L,
+                primary = LibraryTarget(
+                    kind = TargetKind.POWER,
+                    value = if (single) low else null,
+                    min = if (single) null else low,
+                    max = if (single) null else high,
+                    ramp = step.ramp,
+                ),
+            )
+        },
+    )
 
     /** Back to the first interval — like loading the workout afresh. */
     fun restart() {
