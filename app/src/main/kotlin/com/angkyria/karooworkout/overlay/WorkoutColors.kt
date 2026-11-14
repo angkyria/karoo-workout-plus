@@ -57,4 +57,12 @@ object WorkoutColors {
 
     fun zone(index: Int?): Int =
         if (index == null) ZONE_UNKNOWN else ZONES[index.coerceIn(0, ZONES.size - 1)]
+
+    /** In-range share colors (recap, summary, DONE list): green from 80 %, amber from 50 %, red below. */
+    fun inRange(pct: Int?): Int = when {
+        pct == null -> LILAC_DIM
+        pct >= 80 -> IN_RANGE
+        pct >= 50 -> ENDING
+        else -> OVER
+    }
 }

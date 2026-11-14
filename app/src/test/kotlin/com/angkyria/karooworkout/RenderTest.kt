@@ -3,11 +3,14 @@ package com.angkyria.karooworkout
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.view.MotionEvent
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
 import com.angkyria.karooworkout.data.CoreHeat
 import com.angkyria.karooworkout.data.CueFrame
 import com.angkyria.karooworkout.data.Flash
+import com.angkyria.karooworkout.data.NextList
+import com.angkyria.karooworkout.data.PlanTracker
 import com.angkyria.karooworkout.data.RiderProfile
 import com.angkyria.karooworkout.data.WorkoutEngine
 import com.angkyria.karooworkout.data.WorkoutStreams
@@ -24,6 +27,7 @@ import com.angkyria.karooworkout.settings.WorkoutField
 import io.hammerhead.karooext.models.DataType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -69,6 +73,22 @@ class RenderTest {
         return state as WorkoutUiState.Shown
     }
 
+    /** [seconds] into the demo with the NEXT list its own plan gives (watched from the start). */
+    private fun planned(seconds: Int): WorkoutUiState.Shown {
+        val demo = DemoWorkout(ftp = 250)
+        val tracker = PlanTracker().apply { onLibrary(listOf(demo.libraryWorkout())) }
+        val engine = WorkoutEngine()
+        var state: WorkoutUiState.Shown? = null
+        var next: NextList? = null
+        repeat(seconds) { t ->
+            state = engine.update(WorkoutStreams.snapshot(demo.raw()), t * 1000L, false, true) as WorkoutUiState.Shown
+            next = tracker.update(state!!, watchedStart = true, todayStartMs = 0)
+            demo.tick(1000)
+        }
+        assertTrue("the demo plan matches: $next", next is NextList.Planned)
+        return state!!.copy(next = next)
+    }
+
     private fun render(
         name: String,
         state: WorkoutUiState.Shown,
@@ -76,14 +96,24 @@ class RenderTest {
         size: Size = Size.FULL,
         sys: Map<String, Map<String, Double>> = sensors + core,
         cues: CueFrame = CueFrame(),
-    ): Bitmap {
-        val machine = PanelMachine()
-        when (size) {
-            // the workout page, as Karoo shows it when the ride starts: pinned, no handle
-            Size.FULL -> machine.onWorkoutStarted(settings.pageMode, settings.autoOpenDrawer, justStarted = true)
-            Size.DRAWER -> machine.onWorkoutStarted(PageMode.DRAWER_ONLY, autoOpenDrawer = true)
-            Size.CHIP -> machine.onWorkoutStarted(PageMode.DRAWER_ONLY, autoOpenDrawer = false)
-        }
+        scrollPx: Float = 0f,
+    ): Bitmap = draw(name, pageView(state, settings, size, sys, cues).also { it.listScroll.offsetPx = scrollPx })
+
+    private fun pageView(
+        state: WorkoutUiState.Shown,
+        settings: Settings = Settings(),
+        size: Size = Size.FULL,
+        sys: Map<String, Map<String, Double>> = sensors + core,
+        cues: CueFrame = CueFrame(),
+        machine: PanelMachine = PanelMachine().apply {
+            when (size) {
+                // the workout page, as Karoo shows it when the ride starts: pinned, no handle
+                Size.FULL -> onWorkoutStarted(settings.pageMode, settings.autoOpenDrawer, justStarted = true)
+                Size.DRAWER -> onWorkoutStarted(PageMode.DRAWER_ONLY, autoOpenDrawer = true)
+                Size.CHIP -> onWorkoutStarted(PageMode.DRAWER_ONLY, autoOpenDrawer = false)
+            }
+        },
+    ): WorkoutOverlayView {
         assertEquals(size, machine.size)
         val view = WorkoutOverlayView(context, machine)
         view.update(state, settings, profile, sys, cues)
@@ -98,6 +128,12 @@ class RenderTest {
             View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY),
         )
         view.layout(0, 0, w, h)
+        return view
+    }
+
+    private fun draw(name: String, view: WorkoutOverlayView): Bitmap {
+        val w = view.width
+        val h = view.height
         val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         view.draw(Canvas(bitmap))
         File("build/screenshots").apply { mkdirs() }.resolve("$name.png").outputStream().use {
@@ -230,6 +266,87 @@ class RenderTest {
     fun chip() {
         val bitmap = render("chip", ridden(190), Settings(pageMode = PageMode.DRAWER_ONLY), Size.CHIP)
         assertNotEquals(0, bitmap.getPixel(bitmap.width / 2, bitmap.height / 2))
+    }
+
+    // --------------------------------------------------------- interval list
+
+    @Test
+    fun pageShowsTheNextPeek() {
+        val peek = render("page-list-peek", planned(300))
+        assertDrawn(peek)
+        // the first screen is today's page: only the strip under the fields may differ
+        val page = render("page-list-none", planned(300).copy(next = null))
+        val peekTop = peek.height - (SCREEN_W * 0.035f).toInt()
+        for (y in 0 until peekTop) for (x in 0 until peek.width) {
+            if (peek.getPixel(x, y) != page.getPixel(x, y)) throw AssertionError("first screen differs at $x,$y")
+        }
+        val strip = (peekTop until peek.height).flatMap { y -> (0 until peek.width).map { peek.getPixel(it, y) } }
+        assertTrue("a peek under the fields", strip.any { it != WorkoutColors.PANEL })
+    }
+
+    @Test
+    fun pageScrolledToNext() {
+        val s = planned(300)
+        val next = render("page-list-next", s, scrollPx = (SCREEN_H - RIDE_HEADER).toFloat())
+        assertDrawn(next)
+        val top = render("page-list-top", s)
+        val differ = (0 until next.height step 4).count { y -> next.getPixel(SCREEN_W / 2, y) != top.getPixel(SCREEN_W / 2, y) }
+        assertTrue("the list, not the first screen", differ > next.height / 16)
+    }
+
+    @Test
+    fun pageScrolledToDone() {
+        val s = planned(300)
+        // interval 3 skipped: its row says so instead of a share
+        val history = s.history.map { if (it.index == 2) it.copy(endedNaturally = false) else it }
+        val view = pageView(s.copy(history = history)).also { it.listScroll.offsetPx = 1e6f }
+        val done = draw("page-list-done", view)
+        assertDrawn(done)
+        // clamped to the end of the list
+        assertTrue(view.listScroll.offsetPx in 1f..(SCREEN_H * 2f))
+    }
+
+    @Test
+    fun listFallbackRow() {
+        val s = ridden(300).copy(next = NextList.Unknown(8, 8_640_000))
+        assertDrawn(render("page-list-unknown", s, scrollPx = (SCREEN_H - RIDE_HEADER).toFloat()))
+    }
+
+    @Test
+    fun aDragScrollsTheWorkoutPage() {
+        val view = pageView(planned(300))
+        drag(view, fromY = 600f, toY = 300f)
+        assertTrue("scrolled ${view.listScroll.offsetPx}", view.listScroll.offsetPx > 200f)
+    }
+
+    @Test
+    fun noListOnOtherPages() {
+        // the full page grown by hand (DRAWER_ONLY): vertical drags keep their old meaning
+        val settings = Settings(pageMode = PageMode.DRAWER_ONLY)
+        val machine = PanelMachine().apply {
+            onWorkoutStarted(PageMode.DRAWER_ONLY, autoOpenDrawer = true)
+            expand(PageMode.DRAWER_ONLY)
+        }
+        val view = pageView(planned(300), settings, machine = machine)
+        drag(view, fromY = 600f, toY = 300f)
+        assertEquals(0f, view.listScroll.offsetPx)
+        // and the setting off on the workout page
+        val off = pageView(planned(300), Settings(intervalList = false))
+        drag(off, fromY = 600f, toY = 300f)
+        assertEquals(0f, off.listScroll.offsetPx)
+    }
+
+    /** A slow finger drag (no fling) from [fromY] to [toY] down the middle of the view. */
+    private fun drag(view: View, fromY: Float, toY: Float) {
+        val x = SCREEN_W / 2f
+        val steps = 20
+        fun event(action: Int, t: Long, y: Float) = MotionEvent.obtain(0L, t, action, x, y, 0).also {
+            view.onTouchEvent(it)
+            it.recycle()
+        }
+        event(MotionEvent.ACTION_DOWN, 0L, fromY)
+        for (i in 1..steps) event(MotionEvent.ACTION_MOVE, i * 50L, fromY + (toY - fromY) * i / steps)
+        event(MotionEvent.ACTION_UP, (steps + 10) * 50L, toY)
     }
 
     private companion object {

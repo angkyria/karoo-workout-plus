@@ -9,6 +9,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
+import android.os.SystemClock
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
@@ -17,6 +18,7 @@ import com.angkyria.karooworkout.data.CoreHeat
 import com.angkyria.karooworkout.data.CueFrame
 import com.angkyria.karooworkout.data.Flash
 import com.angkyria.karooworkout.data.IntervalRecord
+import com.angkyria.karooworkout.data.NextList
 import com.angkyria.karooworkout.data.RiderProfile
 import com.angkyria.karooworkout.data.Target
 import com.angkyria.karooworkout.data.TargetKind
@@ -44,7 +46,9 @@ import kotlin.math.roundToInt
  *
  * Gestures: tap chip = open; tap drawer = full page; tap the top handle, or swipe
  * down = minimize to the chip; tap the target = visual/numeric; horizontal swipe
- * on the full page = change ride page underneath. No pause button: karoo-ext can
+ * on the full page = change ride page underneath. On the pinned workout page with a
+ * NEXT list, vertical drags and flings scroll the page down to the interval list
+ * ([ListScroll]; it goes back to the top by itself). No pause button: karoo-ext can
  * only pause the ride, not the workout. The window never takes key focus, so every
  * hardware button keeps its native ride-app action.
  */
@@ -75,6 +79,16 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
     private var downY = 0f
     private var gestureHandled = false
 
+    /** Scroll of the workout page down to the interval list (list mode only). */
+    internal val listScroll = ListScroll()
+
+    /** The offset the last frame was drawn at: hit areas live in page coordinates. */
+    private var drawnOffsetPx = 0f
+
+    // list mode: this touch is scrolling the page (decided past the touch slop)
+    private var scrolling = false
+    private var lastDragY = 0f
+
     private val display: TargetDisplay get() = displayOverride ?: settings.targetDisplay
 
     // ------------------------------------------------------------------ input
@@ -86,10 +100,12 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
 
             override fun onSingleTapUp(e: MotionEvent): Boolean {
                 gestureHandled = true
+                // hit areas were recorded on the scrolled page
+                val y = e.y + drawnOffsetPx
                 when {
                     machine.size == Size.CHIP -> resize { machine.expand(settings.pageMode) }
-                    minimizeHit.contains(e.x, e.y) -> resize { machine.collapse(settings.pageMode) }
-                    targetHit.contains(e.x, e.y) -> {
+                    minimizeHit.contains(e.x, y) -> resize { machine.collapse(settings.pageMode) }
+                    targetHit.contains(e.x, y) -> {
                         displayOverride =
                             if (display == TargetDisplay.VISUAL) TargetDisplay.NUMERIC else TargetDisplay.VISUAL
                         lastSignature = null
@@ -104,6 +120,13 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
                 if (e1 == null) return false
                 val dx = e2.x - e1.x
                 val dy = e2.y - e1.y
+                if (listMode() && (scrolling || abs(dy) >= abs(dx))) {
+                    if (abs(velocityY) < SWIPE_MIN_VELOCITY) return false
+                    gestureHandled = true
+                    listScroll.fling(velocityY, listMaxPx(), e2.eventTime)
+                    postInvalidateOnAnimation()
+                    return true
+                }
                 if (abs(dx) > abs(dy)) {
                     // full page covers the ride app: keep its horizontal page swipe working
                     if (machine.size != Size.FULL || abs(dx) < SWIPE_MIN_DISTANCE_PX ||
@@ -144,15 +167,54 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
             downX = event.x
             downY = event.y
             gestureHandled = false
+            scrolling = false
         }
+        if (listMode()) listTouch(event)
         val consumed = gestureDetector.onTouchEvent(event)
-        if (event.actionMasked == MotionEvent.ACTION_UP && !gestureHandled) {
+        if (event.actionMasked == MotionEvent.ACTION_UP && !gestureHandled && !listMode()) {
             // a slow drag never reaches fling speed: judge it by distance instead
             val dx = event.x - downX
             val dy = event.y - downY
             if (abs(dy) >= DRAG_MIN_DISTANCE_PX && abs(dy) > abs(dx) * 1.5f) verticalSwipe(dy)
         }
         return consumed || super.onTouchEvent(event)
+    }
+
+    /** List mode: a vertical drag scrolls the page with the finger (slow drags count). */
+    private fun listTouch(event: MotionEvent) {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                listScroll.touched(event.eventTime)
+                lastDragY = event.y
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val dy = event.y - downY
+                if (!scrolling && abs(dy) > SCROLL_SLOP_PX && abs(dy) > abs(event.x - downX)) scrolling = true
+                if (!scrolling) return
+                listScroll.drag(event.y - lastDragY, listMaxPx())
+                listScroll.touched(event.eventTime)
+                lastDragY = event.y
+                invalidate()
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (scrolling) gestureHandled = true
+                if (!listScroll.moving) listScroll.touched(event.eventTime)
+            }
+        }
+    }
+
+    /**
+     * The workout page scrolls to the interval list: only on the pinned workout page,
+     * full size, the setting on and a NEXT list known. Everywhere else nothing changes.
+     */
+    private fun listMode(): Boolean =
+        machine.size == Size.FULL && machine.pinned(settings.pageMode) && settings.intervalList && state?.next != null
+
+    /** How far the page scrolls: the list below a first screen of the view's height. */
+    private fun listMaxPx(): Float {
+        val s = state ?: return 0f
+        val next = s.next ?: return 0f
+        return listDrawer.height(width, height, s, next)
     }
 
     private fun anchor(): OverlayAnchor = when (machine.size) {
@@ -183,6 +245,11 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         profile = newProfile
         sysValues = newSysValues
         cues = newCues
+        if (listMode()) {
+            listScroll.step(SystemClock.uptimeMillis(), newState.stepIndex, newState.stepRemainingMs)
+        } else {
+            listScroll.home()
+        }
         val signature = renderSignature(newState)
         if (signature == lastSignature) return
         lastSignature = signature
@@ -219,6 +286,9 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
                 (s.workoutProgress?.times(400))?.toInt(),
             )
             Size.FULL -> listOf(
+                listMode(),
+                listScroll.offsetPx.toInt(),
+                s.next?.let(::nextSignature),
                 s.totalRemainingMs?.let { (it + 999) / 1000 },
                 s.elapsedMs / 1000,
                 s.scalePercent,
@@ -239,6 +309,12 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
             )
         }
         return common + rest
+    }
+
+    /** The NEXT list as drawn: "starts in" at whole seconds. */
+    private fun nextSignature(next: NextList): Any = when (next) {
+        is NextList.Planned -> next.rows.map { listOf(it.index, it.target, it.lengthMs, it.startsInMs?.let { ms -> (ms + 999) / 1000 }) }
+        is NextList.Unknown -> listOf(next.count, next.remainingMs?.let { (it + 999) / 1000 })
     }
 
     // ---------------------------------------------------------------- drawing
@@ -281,6 +357,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
     private val flashPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val path = Path()
     private val tmp = RectF()
+    private val listDrawer = IntervalListDrawer(textPaint, labelPaint, fillPaint, glyphPaint)
 
     private val powerIcon: Drawable? = context.getDrawable(R.drawable.ic_power)?.mutate()
     private val heartIcon: Drawable? = context.getDrawable(R.drawable.ic_heart)?.mutate()
@@ -291,10 +368,13 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         val s = state ?: return
         targetHit.setEmpty()
         minimizeHit.setEmpty()
-        when (machine.size) {
-            Size.CHIP -> drawChip(canvas, s)
-            Size.DRAWER -> drawDrawer(canvas, s)
-            Size.FULL -> drawPage(canvas, s)
+        drawnOffsetPx = 0f
+        val next = s.next
+        when {
+            machine.size == Size.CHIP -> drawChip(canvas, s)
+            machine.size == Size.DRAWER -> drawDrawer(canvas, s)
+            listMode() && next != null -> drawScrollingPage(canvas, s, next)
+            else -> drawPage(canvas, s)
         }
         flash()?.let { if (machine.size != Size.CHIP) drawFlashFrame(canvas, it) }
     }
@@ -329,6 +409,29 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
     }
 
     // ------------------------------------------------------------- full page
+
+    /**
+     * The workout page with the interval list under it, scrolled by [listScroll]: the
+     * first screen is [drawPage] exactly (plus the NEXT peek in the strip under the
+     * fields), the list follows below. Only what is in view is drawn.
+     */
+    private fun drawScrollingPage(canvas: Canvas, s: WorkoutUiState.Shown, next: NextList) {
+        val now = SystemClock.uptimeMillis()
+        if (listScroll.moving) listScroll.step(now, s.stepIndex, s.stepRemainingMs)
+        listScroll.offsetPx = listScroll.offsetPx.coerceIn(0f, listMaxPx())
+        val offset = listScroll.offsetPx
+        drawnOffsetPx = offset
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
+        canvas.save()
+        canvas.translate(0f, -offset)
+        if (offset < height) {
+            drawPage(canvas, s)
+            listDrawer.peek(canvas, width, height)
+        }
+        listDrawer.draw(canvas, width, height, height.toFloat(), offset, offset + height, s, next, profile)
+        canvas.restore()
+        if (listScroll.moving) postInvalidateOnAnimation()
+    }
 
     private fun drawPage(canvas: Canvas, s: WorkoutUiState.Shown) {
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
@@ -775,7 +878,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
             inner.top + lineH / 2 + capHeight(size) / 2,
             "#${rec.index + 1} DONE",
             pct?.let { "$it% IN" } ?: "--",
-            inRangeColor(pct),
+            WorkoutColors.inRange(pct),
         )
         val avg = rec.avgOutput?.let { "AVG ${it.roundToInt()}${unitOf(rec.kind)}" } ?: "AVG --"
         line(inner.top + lineH * 1.5f + capHeight(size) / 2, avg, Format.elapsed(rec.actualMs), Color.WHITE)
@@ -829,7 +932,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
             cell("${rec.index + 1}", 0, baseline, textPaint, Color.WHITE)
             cell(targetText(rec), 1, baseline, textPaint, Color.WHITE)
             cell(rec.avgOutput?.roundToInt()?.toString() ?: "—", 2, baseline, textPaint, Color.WHITE)
-            cell(pct?.let { "$it%" } ?: "—", 3, baseline, textPaint, inRangeColor(pct))
+            cell(pct?.let { "$it%" } ?: "—", 3, baseline, textPaint, WorkoutColors.inRange(pct))
         }
         textPaint.color = Color.WHITE
         textPaint.textAlign = Paint.Align.LEFT
@@ -852,14 +955,6 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         TargetKind.HEART_RATE -> " BPM"
         TargetKind.CADENCE -> " RPM"
         else -> ""
-    }
-
-    /** In-range share colors: green from 80 %, amber from 50 %, red below. */
-    private fun inRangeColor(pct: Int?): Int = when {
-        pct == null -> WorkoutColors.LILAC_DIM
-        pct >= 80 -> WorkoutColors.IN_RANGE
-        pct >= 50 -> WorkoutColors.ENDING
-        else -> WorkoutColors.OVER
     }
 
     /**
@@ -1149,6 +1244,9 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
 
         private const val SWIPE_MIN_DISTANCE_PX = 50f
         private const val SWIPE_MIN_VELOCITY = 250f
+
+        /** List mode: a vertical move past this starts scrolling (taps stay taps). */
+        private const val SCROLL_SLOP_PX = 12f
 
         /** A vertical drag at least this long minimizes / opens even when slow. */
         private const val DRAG_MIN_DISTANCE_PX = 90f

@@ -1,6 +1,8 @@
 package com.angkyria.karooworkout.overlay
 
+import com.angkyria.karooworkout.data.LibraryTarget
 import com.angkyria.karooworkout.data.Target
+import com.angkyria.karooworkout.data.TargetKind
 import com.angkyria.karooworkout.settings.FieldFormat
 import io.hammerhead.karooext.models.DataType
 import kotlin.math.abs
@@ -54,4 +56,34 @@ object Format {
     /** Body temperature: °C with one decimal, °F for imperial. */
     fun temperature(celsius: Double?, imperial: Boolean): String =
         celsius?.let { "%.1f".format(if (imperial) it * 1.8 + 32 else it) } ?: "--"
+
+    // ------------------------------------------------------------ interval list
+
+    /** When an upcoming interval starts: "in 12:30", or "after lap" behind an open step. */
+    fun startsIn(ms: Long?): String = ms?.let { "in ${countdown(it)}" } ?: "after lap"
+
+    /** A planned target with its unit: "220–232 W", a ramp "137→187 W", "140–150 bpm"; "—" without one. */
+    fun plannedTarget(t: LibraryTarget?): String {
+        t ?: return "—"
+        val unit = when (t.kind) {
+            TargetKind.POWER -> " W"
+            TargetKind.HEART_RATE -> " bpm"
+            TargetKind.CADENCE -> " rpm"
+            else -> ""
+        }
+        val lo = t.min?.roundToInt()
+        val hi = t.max?.roundToInt()
+        val text = when {
+            lo != null && hi != null && lo != hi -> if (t.ramp) "$lo→$hi" else "$lo–$hi"
+            t.value != null -> "${t.value.roundToInt()}"
+            else -> lo?.toString() ?: hi?.toString() ?: return "—"
+        }
+        return text + unit
+    }
+
+    /** The NEXT row without a plan: "+8 intervals · 2:24:40". */
+    fun unknownNext(count: Int, remainingMs: Long?): String {
+        val intervals = if (count == 1) "+1 interval" else "+$count intervals"
+        return remainingMs?.let { "$intervals · ${countdown(it)}" } ?: intervals
+    }
 }
