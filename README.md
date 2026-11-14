@@ -7,7 +7,7 @@
 ![Karoo 3](https://img.shields.io/badge/Karoo%203-untested-lightgrey)
 
 **Website: [angkyria.github.io/karoo-workout-plus](https://angkyria.github.io/karoo-workout-plus/)**\
-**Download: [Workout+ 1.3.0](https://github.com/angkyria/karoo-workout-plus/releases/latest)** (`karoo-workout-plus.apk`)
+**Download: [Workout+ 1.5.0](https://github.com/angkyria/karoo-workout-plus/releases/latest)** (`karoo-workout-plus.apk`)
 
 The new Karoo OS workout layout, as a free, open-source extension for the
 **Hammerhead Karoo 2**. The Karoo 3 got a purple workout drawer — target bar,
@@ -107,7 +107,7 @@ to any page of your own.
 ## Installation
 
 1. Download `karoo-workout-plus.apk` from the
-   [latest release](https://github.com/angkyria/karoo-workout-plus/releases/latest) (1.3.0).
+   [latest release](https://github.com/angkyria/karoo-workout-plus/releases/latest) (1.5.0).
 2. Enable Developer Options + USB debugging on the Karoo
    ([Hammerhead guide](https://support.hammerhead.io/hc/en-us/articles/30696553134363)).
 3. Install and allow the overlay:
@@ -135,10 +135,12 @@ shows how each finished one went (average and % in range). The plan is read
 offline from the Karoo's own workout library — no account, any workout source.
 The page goes back to the top by itself after 10 s, at every interval change and
 at the 10 s warning beep. Setting: *Interval list on the workout page*.
+[Release page](https://github.com/angkyria/karoo-workout-plus/releases/tag/v1.5.0).
 
 **1.4.0** — Workout+ and Climber+ share the screen: their bottom chips sit side
 by side, and when both want a drawer or full page the one you pick in the
 settings (*With Climber+: which opens*) shows, the other waits.
+Released together with 1.5.0.
 
 **1.3.0** — choose how power targets are averaged: 3 s, 5 s or 10 s (the header
 reads `POWER 5S` / `POWER 10S`); a workout's cadence target shows as the second
