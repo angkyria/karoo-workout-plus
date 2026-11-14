@@ -104,6 +104,18 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   gives way to the other's drawer / full page; two panels: setting `overlayPriority`
   (broadcast to Climber+) keeps one. The fork at github.com/angkyria/karoo-climber-plus
   carries the same file — change both together.
+- **Interval list** (on the pinned workout page): `data/KarooLibrary` reads the
+  Karoo workout library (unofficial — see Facts) and `LibraryMapper` maps it by
+  reflection to `WorkoutPlan` (`LibraryWorkout`, repeats expanded by `expand()`).
+  `PlanMatcher` picks the running workout (watched start first, then late-join
+  rules; ties: today, then latest update; differing structures → no plan) and
+  `PlanTracker` live-checks each interval's range 3 s in (two misses in a row →
+  fallback row) and builds `Shown.next`. `overlay/IntervalListDrawer` draws NEXT /
+  DONE; `ListScroll` scrolls and goes home at 10 s idle, on a step change and at
+  the warning crossing. The `NEXT ▾` peek sits in the page's bottom padding strip
+  (the first screen is pixel-identical to the page without it). Gestures: system
+  touch slop, vertical only when |dy| > 1.5·|dx|, no tap once scrolling. Setting
+  `intervalList` (key `interval_list`). Demo mode feeds `DemoWorkout.libraryWorkout()`.
 - **`WorkoutPageField`** — the "Workout+ page" graphical data type; a page marker
   (and a countdown under the overlay).
 - **`data/CoreHeat`** — CORE sensor + CORE Heat extension (`TYPE_EXT::coreheat::*`,
@@ -121,6 +133,21 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   an end, or moving between fixed ends) and holds the rider to value ±band.
 
 ## Facts verified on a Karoo 2 (ride app 4.197)
+
+- The workout library is readable offline (spike, 2026-11-14): bind
+  `io.hammerhead.datasyncservice/.v2.DataSyncService` with action
+  `databaseOperationsController` (exported, no permission, no caller check),
+  descriptor `io.hammerhead.datasyncservice.v2.DatabaseOperationsAIDL`,
+  transaction 9 `getDocumentTypeList("workout", skip, limit, null)` → Bundle
+  `"value"` = `io.hammerhead.aidlrx.ParcelableList` of
+  `io.hammerhead.datamodels.workouts.Workout` (unparcel with the package's class loader).
+  Targets are absolute (watts, from %FTP). The same service also writes and
+  deletes documents — Workout+ only ever calls 9. Unofficial: an OS update may
+  break it; Karoo 3 untested (manifest `<queries>` added for Android 11+).
+  Today's workout read back as 9 intervals / 2:45:00, exactly what the ride ran.
+- Not yet verified on a ride: the interval list end to end (match, rows, skip),
+  the idle return while paused, the gesture thresholds with gloves, ramp
+  start→end direction, HR / cadence difficulty scaling, other `lengthType` values.
 
 - The native workout page arrives via `ActiveRidePage` as one element: `TYPE_WORKOUT_ID`
   — but only for manual swipes. When a ride starts with a workout loaded, the ride

@@ -129,6 +129,17 @@ signed with a throwaway debug key, so it only installs after an uninstall.
 
 ## Releases
 
+**1.5.0** — scroll the workout page for the interval list: **NEXT** shows every
+upcoming interval with its target, length and the time until it starts; **DONE**
+shows how each finished one went (average and % in range). The plan is read
+offline from the Karoo's own workout library — no account, any workout source.
+The page goes back to the top by itself after 10 s, at every interval change and
+at the 10 s warning beep. Setting: *Interval list on the workout page*.
+
+**1.4.0** — Workout+ and Climber+ share the screen: their bottom chips sit side
+by side, and when both want a drawer or full page the one you pick in the
+settings (*With Climber+: which opens*) shows, the other waits.
+
 **1.3.0** — choose how power targets are averaged: 3 s, 5 s or 10 s (the header
 reads `POWER 5S` / `POWER 10S`); a workout's cadence target shows as the second
 target even when Karoo only streams it on its cadence target stream.
