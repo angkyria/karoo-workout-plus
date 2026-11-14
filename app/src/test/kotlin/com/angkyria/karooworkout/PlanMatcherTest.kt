@@ -41,7 +41,7 @@ class PlanMatcherTest {
     }
 
     @Test fun `first length off by more than 2 s rejects`() {
-        assertNull(PlanMatcher.match(listOf(plan), watched(remaining = 1_197_000), TODAY))
+        assertNull(PlanMatcher.match(listOf(plan), watched(remaining = 1_190_000), TODAY))
     }
 
     @Test fun `wrong count rejects`() {
@@ -58,6 +58,14 @@ class PlanMatcherTest {
 
     @Test fun `late join matches from the current index`() {
         assertEquals(plan, PlanMatcher.match(listOf(plan), late(), TODAY))
+    }
+
+    @Test fun `watched start falls back to the late rules`() {
+        // 5 s into step 0: the strict first-length check fails, the late rules agree
+        assertEquals(plan, PlanMatcher.match(listOf(plan), watched(remaining = 1_195_000, total = 9_895_000), TODAY))
+        // watched, but a later index (late read after a step change)
+        val atTwo = late(remaining = 200_000, total = 200_000L + 7_500_000).copy(stepIndex = 2, watchedStart = true, targetMin = 146.0, targetMax = 154.0)
+        assertEquals(plan, PlanMatcher.match(listOf(plan), atTwo, TODAY))
     }
 
     @Test fun `late join rejects a remaining longer than the step`() {

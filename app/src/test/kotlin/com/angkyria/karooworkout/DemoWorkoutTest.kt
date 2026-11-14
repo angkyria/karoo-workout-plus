@@ -84,7 +84,8 @@ class DemoWorkoutTest {
             scalePercent = s.scalePercent,
         )
         val library = listOf(demo.libraryWorkout())
-        // a watched start matches on the first frames (the first countdown is still the step's length)
+        // the brief's case: 5 s in, a watched start (late read falls back to the late rules)
+        assertTrue(PlanMatcher.match(library, run(states[4], watchedStart = true), 0L) != null)
         assertTrue(PlanMatcher.match(library, run(states[1], watchedStart = true), 0L) != null)
         // and a run picked up mid-way matches as well
         assertTrue(PlanMatcher.match(library, run(states[4], watchedStart = false), 0L) != null)

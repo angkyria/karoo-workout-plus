@@ -53,6 +53,18 @@ class PlanTrackerTest {
     private fun PlanTracker.at(s: WorkoutUiState.Shown) = update(s, watchedStart = false, todayStartMs = TODAY)
 
     @Test
+    fun `late library read still matches a watched start`() {
+        val t = PlanTracker()
+        for (sec in 0..5) {
+            val s = shown(0, lengths[0] - sec * 1000L)
+            assertTrue(t.update(s, watchedStart = true, todayStartMs = TODAY) is NextList.Unknown)
+        }
+        t.onLibrary(listOf(todayWorkout()))
+        val s = shown(0, lengths[0] - 6_000L)
+        assertTrue(t.update(s, watchedStart = true, todayStartMs = TODAY) is NextList.Planned)
+    }
+
+    @Test
     fun `no library gives the unknown row`() {
         val t = PlanTracker().apply { onLibrary(null) }
         val s = shown(0, 1_000_000)
