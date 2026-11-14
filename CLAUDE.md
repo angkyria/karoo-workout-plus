@@ -110,8 +110,11 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   `PlanMatcher` picks the running workout (watched start first, then late-join
   rules; ties: today, then latest update; differing structures → no plan) and
   `PlanTracker` live-checks each interval's range 3 s in (two misses in a row →
-  fallback row) and builds `Shown.next`. `overlay/IntervalListDrawer` draws NEXT /
-  DONE; `ListScroll` scrolls and goes home at 10 s idle, on a step change and at
+  fallback row) and builds `Shown.next`. `WorkoutGeneration` starts a new plan +
+  library read per workout (Hidden, step count, demo toggle, or a new
+  `WorkoutEngine.epoch`: held finished workout replaced / back to the start; the
+  read only while overlay and list are on). `overlay/IntervalListDrawer` draws NEXT /
+  DONE (DONE alone once complete); `ListScroll` scrolls and goes home at 10 s idle, on a step change and at
   the warning crossing. The `NEXT ▾` peek sits in the page's bottom padding strip
   (the first screen is pixel-identical to the page without it). Gestures: system
   touch slop, vertical only when |dy| > 1.5·|dx|, no tap once scrolling. Setting

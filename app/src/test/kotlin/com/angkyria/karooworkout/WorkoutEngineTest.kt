@@ -10,6 +10,7 @@ import com.angkyria.karooworkout.data.WorkoutSnapshot
 import com.angkyria.karooworkout.data.WorkoutUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -387,6 +388,32 @@ class WorkoutEngineTest {
         val next = engine.tick(snap(0, 60_000))
         assertEquals(1, next.history.size)
         assertFalse(next.complete)
+    }
+
+    @Test
+    fun aNewWorkoutBumpsTheEpochTheSameOneDoesNot() {
+        val engine = WorkoutEngine()
+        engine.tick(snap(0, 60_000))
+        val first = engine.epoch
+        engine.tick(snap(1, 50_000))
+        engine.tick(snap(3, 40_000))
+        engine.tick(snap(2, 30_000)) // a one-step rewind is the same workout
+        assertEquals(first, engine.epoch)
+        // finished and held, then another workout with the same step count
+        engine.tick(snap(4, 2_000, 2_000))
+        engine.tick(snap(4, 1_000, 1_000))
+        engine.update(WorkoutSnapshot(stepCount = 0), 5_000, false, true)
+        engine.tick(snap(0, 60_000))
+        val second = engine.epoch
+        assertNotEquals(first, second)
+        // back to the start from deep inside
+        engine.tick(snap(3, 10_000))
+        engine.tick(snap(0, 60_000))
+        val third = engine.epoch
+        assertNotEquals(second, third)
+        // the ride ending is no new workout by itself
+        engine.reset()
+        assertEquals(third, engine.epoch)
     }
 
     @Test

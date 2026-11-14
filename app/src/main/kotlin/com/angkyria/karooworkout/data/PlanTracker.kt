@@ -44,6 +44,12 @@ class PlanTracker {
         mismatches = 0
     }
 
+    /** Another workout: forget the plan and the library read for the last one (no library yet). */
+    fun newWorkout() {
+        reset()
+        library = null
+    }
+
     fun update(state: WorkoutUiState.Shown, watchedStart: Boolean, todayStartMs: Long): NextList {
         if (lastStepCount != null && lastStepCount != state.stepCount) reset()
         lastStepCount = state.stepCount
@@ -58,6 +64,7 @@ class PlanTracker {
                     totalRemainingMs = state.totalRemainingMs,
                     elapsedMs = state.elapsedMs,
                     watchedStart = watchedStart,
+                    targetKind = state.primary?.kind,
                     targetMin = state.primary?.min,
                     targetMax = state.primary?.max,
                     targetImplied = state.primary?.implied ?: false,
@@ -79,7 +86,7 @@ class PlanTracker {
         if (length - remaining < CHECK_AFTER_MS || !checked.add(state.stepIndex)) return
         val primary = state.primary
         val verdict = PlanMatcher.rangeAgrees(
-            interval.target, primary?.min, primary?.max, primary?.implied ?: false, state.scalePercent,
+            interval.target, primary?.kind, primary?.min, primary?.max, primary?.implied ?: false, state.scalePercent,
         ) ?: return
         if (verdict) {
             mismatches = 0

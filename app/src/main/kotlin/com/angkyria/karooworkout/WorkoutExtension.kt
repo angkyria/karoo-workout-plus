@@ -10,6 +10,7 @@ import com.angkyria.karooworkout.data.Beep
 import com.angkyria.karooworkout.data.StreamHub
 import com.angkyria.karooworkout.data.WorkoutCues
 import com.angkyria.karooworkout.data.WorkoutEngine
+import com.angkyria.karooworkout.data.WorkoutGeneration
 import com.angkyria.karooworkout.data.WorkoutPage
 import com.angkyria.karooworkout.data.WorkoutStreams
 import com.angkyria.karooworkout.data.WorkoutUiState
@@ -80,11 +81,7 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
     @Volatile private var rideStateKnown = false
 
     /** Bumped whenever a new workout may be running; a library read is made once per generation. */
-    private var workoutGeneration = 0
-    private var readGeneration = -1
-    private var workoutShown = false
-    private var shownStepCount: Int? = null
-    private var shownDemo = false
+    private val generation = WorkoutGeneration()
 
     /** This service saw the running workout begin (kept for the whole workout). */
     private var watchedStartForWorkout = false
@@ -281,35 +278,27 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
 
     /**
      * Keeps the plan tracker in step with the workout: a new workout (Hidden in
-     * between, a changed step count, demo toggled) starts a new generation, and the
-     * library is read once per generation.
+     * between, a changed step count, demo toggled, a new engine epoch) starts a new
+     * generation, and the library is read once per generation while the list can show.
      */
     private fun trackWorkout(state: WorkoutUiState, s: Settings, freshStart: Boolean) {
+        val firstFrame = state is WorkoutUiState.Shown && !generation.shown
+        if (generation.update(state, s.demoMode, engine.epoch)) newGeneration()
         if (state !is WorkoutUiState.Shown) {
-            if (workoutShown || shownDemo != s.demoMode) newGeneration()
-            workoutShown = false
-            shownStepCount = null
-            shownDemo = s.demoMode
             watchedStartForWorkout = false
             return
         }
-        if (!workoutShown) {
-            workoutShown = true
-            watchedStartForWorkout = freshStart
-        } else if (shownStepCount != state.stepCount || shownDemo != s.demoMode) {
-            newGeneration()
-        }
-        shownStepCount = state.stepCount
-        shownDemo = s.demoMode
-        if (!s.intervalList || readGeneration == workoutGeneration) return
-        readGeneration = workoutGeneration
+        if (firstFrame) watchedStartForWorkout = freshStart
+        if (!generation.needsRead(s.overlayEnabled && s.intervalList)) return
         if (s.demoMode) {
             onLibrary(listOf(demo.libraryWorkout()))
         } else {
-            val generation = workoutGeneration
-            scope.launch {
+            val readFor = generation.value
+            // Dispatchers.Main, not immediate: a bind refused at once must not finish
+            // the read, and render() again, inside this render
+            scope.launch(Dispatchers.Main) {
                 val workouts = library.read()
-                if (generation != workoutGeneration) return@launch // a newer workout owns the tracker
+                if (readFor != generation.value) return@launch // a newer workout owns the tracker
                 onLibrary(workouts)
                 lastInputs?.let(::render)
             }
@@ -317,10 +306,11 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
     }
 
     private fun newGeneration() {
-        workoutGeneration++
-        tracker.reset()
+        tracker.newWorkout()
+        libraryWorkouts = null
         libraryRead = false
         diagMatched = null
+        Diagnostics.library.value = null
     }
 
     private fun onLibrary(workouts: List<LibraryWorkout>?) {

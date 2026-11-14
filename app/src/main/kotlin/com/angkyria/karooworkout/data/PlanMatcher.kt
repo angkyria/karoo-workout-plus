@@ -14,6 +14,7 @@ data class RunObservation(
     val totalRemainingMs: Long?,
     val elapsedMs: Long,
     val watchedStart: Boolean,
+    val targetKind: TargetKind?,
     val targetMin: Double?,
     val targetMax: Double?,
     val targetImplied: Boolean,
@@ -53,40 +54,47 @@ object PlanMatcher {
         if (plan.isEmpty() || plan.size != run.stepCount) return false
         val index = run.stepIndex
         if (index !in plan.indices) return false
-        val remaining = run.stepRemainingMs ?: return false
-        val totalRemaining = run.totalRemainingMs ?: return false
         val current = plan[index]
         val length = current.lengthMs
+        // an open step may stream no countdown; a fixed one must
+        val remaining = run.stepRemainingMs
+        if (length != null && remaining == null) return false
+        val totalRemaining = run.totalRemainingMs
         // A watched start is the stricter reading; when it fails (a late library read
         // lands seconds into the workout) the late-join rules still decide.
         val watchedFits = run.watchedStart && index == 0 &&
             (plan.totalMs.let { it == null || it > 0 }) &&
-            (length == null || abs(remaining - length) <= FIRST_LENGTH_TOLERANCE_MS) &&
-            (plan.totalMs.let { it == null || abs(run.elapsedMs + totalRemaining - it) <= TOTAL_TOLERANCE_MS })
+            (length == null || abs(remaining!! - length) <= FIRST_LENGTH_TOLERANCE_MS) &&
+            (plan.totalMs.let { it == null || (totalRemaining != null && abs(run.elapsedMs + totalRemaining - it) <= TOTAL_TOLERANCE_MS) })
         if (!watchedFits) {
-            if (length != null && length < remaining) return false
+            if (length != null && length < remaining!!) return false
             val after = plan.drop(index + 1)
-            if (after.none { it.lengthMs == null }) {
+            if (remaining != null && after.none { it.lengthMs == null }) {
                 val rest = remaining + after.sumOf { it.lengthMs!! }
-                if (abs(totalRemaining - rest) > TOTAL_TOLERANCE_MS) return false
+                if (totalRemaining == null || abs(totalRemaining - rest) > TOTAL_TOLERANCE_MS) return false
             }
         }
-        return rangeAgrees(current.target, run.targetMin, run.targetMax, run.targetImplied, run.scalePercent) != false
+        return rangeAgrees(current.target, run.targetKind, run.targetMin, run.targetMax, run.targetImplied, run.scalePercent) != false
     }
 
     /**
      * Whether Karoo's [min]..[max] is the planned range (± 1; power scaled by the
-     * difficulty). Null when there is nothing to compare: no planned range, an
-     * [implied] band, or no observed range.
+     * difficulty) for a target of Karoo's [kind]. Null when there is nothing to
+     * compare: no planned range, an [implied] band, or no observed range. Two known,
+     * different kinds disagree; an unknown kind on either side leaves it to the range.
      */
     fun rangeAgrees(
         planned: LibraryTarget?,
+        kind: TargetKind?,
         min: Double?,
         max: Double?,
         implied: Boolean,
         scalePercent: Int?,
     ): Boolean? {
         if (planned == null || implied || min == null || max == null) return null
+        if (kind != null && kind != TargetKind.UNKNOWN && planned.kind != TargetKind.UNKNOWN && kind != planned.kind) {
+            return false
+        }
         val pMin = planned.min ?: return null
         val pMax = planned.max ?: return null
         val scale = if (planned.kind == TargetKind.POWER && scalePercent != null) scalePercent / 100.0 else 1.0

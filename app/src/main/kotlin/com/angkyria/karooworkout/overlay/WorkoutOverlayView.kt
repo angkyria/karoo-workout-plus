@@ -448,7 +448,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         canvas.translate(0f, -offset)
         if (offset < height) {
             drawPage(canvas, s)
-            listDrawer.peek(canvas, width, height)
+            listDrawer.peek(canvas, width, height, if (s.complete) "DONE" else "NEXT")
         }
         listDrawer.draw(canvas, width, height, height.toFloat(), offset, offset + height, s, next, profile)
         canvas.restore()

@@ -78,6 +78,7 @@ class DemoWorkoutTest {
             totalRemainingMs = s.totalRemainingMs,
             elapsedMs = s.elapsedMs,
             watchedStart = watchedStart,
+            targetKind = s.primary?.kind,
             targetMin = s.primary?.min,
             targetMax = s.primary?.max,
             targetImplied = s.primary?.implied ?: false,

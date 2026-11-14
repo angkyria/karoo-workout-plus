@@ -116,6 +116,14 @@ class WorkoutEngine {
     /** Karoo's numeric target type -> kind, learned whenever a per-kind stream matches. */
     private val learnedKinds = mutableMapOf<Int, TargetKind>()
 
+    /**
+     * Bumped on every new workout the engine tells apart (a held finished one
+     * replaced, a changed step count, back to the start from deep inside); not by
+     * [reset] alone, so a ride ending does not count.
+     */
+    var epoch = 0
+        private set
+
     fun reset() {
         records.clear()
         stepCount = 0
@@ -142,14 +150,15 @@ class WorkoutEngine {
             reset()
             return WorkoutUiState.Hidden
         }
-        if (holdingComplete) reset()
         val index = s.stepIndex!!.coerceIn(0, s.stepCount - 1)
         val prevIndex = lastIndex
-        if (s.stepCount != stepCount ||
+        if (holdingComplete || s.stepCount != stepCount ||
             (prevIndex != null && prevIndex - index > 1)
         ) {
-            // different step count, or back to the start from deep inside: a new workout
+            // a finished workout replaced, a different step count, or back to the start
+            // from deep inside: a new workout
             reset()
+            epoch++
         }
         stepCount = s.stepCount
 

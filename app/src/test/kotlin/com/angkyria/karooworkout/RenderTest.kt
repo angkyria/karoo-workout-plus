@@ -3,6 +3,7 @@ package com.angkyria.karooworkout
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Paint
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -17,6 +18,7 @@ import com.angkyria.karooworkout.data.WorkoutEngine
 import com.angkyria.karooworkout.data.WorkoutStreams
 import com.angkyria.karooworkout.data.WorkoutUiState
 import com.angkyria.karooworkout.debug.DemoWorkout
+import com.angkyria.karooworkout.overlay.IntervalListDrawer
 import com.angkyria.karooworkout.overlay.PanelMachine.Size
 import com.angkyria.karooworkout.overlay.PanelMachine
 import com.angkyria.karooworkout.overlay.WorkoutColors
@@ -305,6 +307,18 @@ class RenderTest {
         assertDrawn(done)
         // clamped to the end of the list
         assertTrue(view.listScroll.offsetPx in 1f..(SCREEN_H * 2f))
+    }
+
+    @Test
+    fun finishedWorkoutListHasNoNext() {
+        val s = planned(300).copy(complete = true, stepRemainingMs = 0, totalRemainingMs = 0)
+        val drawer = IntervalListDrawer(Paint(), Paint(), Paint(), Paint())
+        // whatever the tracker says, a finished workout's list is DONE alone
+        val rows = drawer.height(SCREEN_W, SCREEN_H, s, s.next!!)
+        assertEquals(rows, drawer.height(SCREEN_W, SCREEN_H, s, NextList.Unknown(0, 0)))
+        assertEquals(rows, drawer.height(SCREEN_W, SCREEN_H, s, NextList.Planned(emptyList())))
+        assertTrue(rows < drawer.height(SCREEN_W, SCREEN_H, s.copy(complete = false), NextList.Planned(emptyList())))
+        assertDrawn(render("page-list-complete", s, scrollPx = (SCREEN_H - RIDE_HEADER).toFloat()))
     }
 
     @Test

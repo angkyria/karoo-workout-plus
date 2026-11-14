@@ -82,6 +82,18 @@ class PlanTrackerTest {
     }
 
     @Test
+    fun `a new workout forgets the plan and the library`() {
+        val t = tracker()
+        assertTrue(t.at(shown(0, 1_000_000)) is NextList.Planned)
+        t.newWorkout()
+        // no library yet: the fallback row, like a failed read
+        assertTrue(t.at(shown(0, 1_000_000)) is NextList.Unknown)
+        assertNull(t.matched)
+        t.onLibrary(listOf(todayWorkout()))
+        assertTrue(t.at(shown(0, 1_000_000)) is NextList.Planned)
+    }
+
+    @Test
     fun `skip re-anchors rows`() {
         val t = tracker()
         t.at(shown(0, 1_000_000))

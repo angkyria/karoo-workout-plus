@@ -49,7 +49,8 @@ internal class IntervalListDrawer(
     fun height(width: Int, height: Int, s: WorkoutUiState.Shown, next: NextList): Float {
         val m = Metrics(width, height)
         val done = done(s).size
-        var h = m.headerH + nextRowCount(next) * (m.rowH + m.gap)
+        // a finished workout has nothing next: DONE alone
+        var h = if (s.complete) 0f else m.headerH + nextRowCount(next) * (m.rowH + m.gap)
         if (done > 0) h += m.headerH + done * (m.rowH + m.gap)
         return h + m.pad
     }
@@ -75,21 +76,23 @@ internal class IntervalListDrawer(
         var y = top
         fun visible(h: Float) = y + h >= visibleTop && y <= visibleBottom
 
-        if (visible(m.headerH)) header(canvas, m, left, right, y, "NEXT", "starts in")
-        y += m.headerH
-        when (next) {
-            is NextList.Unknown -> {
-                if (visible(m.rowH)) note(canvas, m, left, right, y, Format.unknownNext(next.count, next.remainingMs))
-                y += m.rowH + m.gap
-            }
-            is NextList.Planned -> {
-                if (next.rows.isEmpty()) {
-                    if (visible(m.rowH)) note(canvas, m, left, right, y, "last interval")
+        if (!s.complete) {
+            if (visible(m.headerH)) header(canvas, m, left, right, y, "NEXT", "starts in")
+            y += m.headerH
+            when (next) {
+                is NextList.Unknown -> {
+                    if (visible(m.rowH)) note(canvas, m, left, right, y, Format.unknownNext(next.count, next.remainingMs))
                     y += m.rowH + m.gap
                 }
-                for (row in next.rows) {
-                    if (visible(m.rowH)) nextRow(canvas, m, left, right, y, row, profile)
-                    y += m.rowH + m.gap
+                is NextList.Planned -> {
+                    if (next.rows.isEmpty()) {
+                        if (visible(m.rowH)) note(canvas, m, left, right, y, "last interval")
+                        y += m.rowH + m.gap
+                    }
+                    for (row in next.rows) {
+                        if (visible(m.rowH)) nextRow(canvas, m, left, right, y, row, profile)
+                        y += m.rowH + m.gap
+                    }
                 }
             }
         }
@@ -103,18 +106,18 @@ internal class IntervalListDrawer(
         }
     }
 
-    /** "NEXT ▾" in the strip under the first screen's fields: there is more below. */
-    fun peek(canvas: Canvas, width: Int, height: Int) {
+    /** "NEXT ▾" ("DONE ▾" once finished) in the strip under the first screen's fields: there is more below. */
+    fun peek(canvas: Canvas, width: Int, height: Int, title: String = "NEXT") {
         val m = Metrics(width, height)
         val size = m.pad * 0.8f
         label.textSize = size
         label.textAlign = Paint.Align.CENTER
         label.color = WorkoutColors.LILAC_DIM
         val chevronW = size * 0.7f
-        val textW = label.measureText("NEXT")
+        val textW = label.measureText(title)
         val cx = width / 2f - (chevronW + size * 0.35f) / 2
         val baseline = height - m.pad / 2 + capHeight(size) / 2
-        canvas.drawText("NEXT", cx, baseline, label)
+        canvas.drawText(title, cx, baseline, label)
         val x0 = cx + textW / 2 + size * 0.35f
         val cy = baseline - capHeight(size) / 2
         glyph.color = WorkoutColors.LILAC_DIM
