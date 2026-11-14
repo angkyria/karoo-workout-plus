@@ -29,6 +29,7 @@ class SettingsRepo(private val context: Context) {
         val coreHeatStrip = booleanPreferencesKey("core_heat_strip")
         val chipAnchor = stringPreferencesKey("chip_anchor")
         val drawerAnchor = stringPreferencesKey("drawer_anchor")
+        val overlayPriority = stringPreferencesKey("overlay_priority")
         val heightPercent = intPreferencesKey("height_percent")
         val opacityPercent = intPreferencesKey("opacity_percent")
         val demoMode = booleanPreferencesKey("demo_mode")
@@ -63,6 +64,7 @@ class SettingsRepo(private val context: Context) {
             coreHeatStrip = this[Keys.coreHeatStrip] ?: d.coreHeatStrip,
             chipAnchor = enumOr(this[Keys.chipAnchor], d.chipAnchor),
             drawerAnchor = enumOr(this[Keys.drawerAnchor], d.drawerAnchor),
+            overlayPriority = enumOr(this[Keys.overlayPriority], d.overlayPriority),
             heightPercent = (this[Keys.heightPercent] ?: d.heightPercent).coerceIn(30, 70),
             opacityPercent = (this[Keys.opacityPercent] ?: d.opacityPercent).coerceIn(75, 100),
             intervalBeeps = this[Keys.intervalBeeps] ?: d.intervalBeeps,
@@ -87,6 +89,7 @@ class SettingsRepo(private val context: Context) {
         this[Keys.coreHeatStrip] = s.coreHeatStrip
         this[Keys.chipAnchor] = s.chipAnchor.name
         this[Keys.drawerAnchor] = s.drawerAnchor.name
+        this[Keys.overlayPriority] = s.overlayPriority.name
         this[Keys.heightPercent] = s.heightPercent
         this[Keys.opacityPercent] = s.opacityPercent
         this[Keys.intervalBeeps] = s.intervalBeeps

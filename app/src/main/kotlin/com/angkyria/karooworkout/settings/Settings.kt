@@ -2,6 +2,7 @@ package com.angkyria.karooworkout.settings
 
 import com.angkyria.karooworkout.data.CoreHeat
 import com.angkyria.karooworkout.data.PowerAverage
+import com.angkyria.karooworkout.overlay.OverlayPriority
 import io.hammerhead.karooext.models.DataType
 
 /** How the overlay relates to the ride app's pages. Listed in the settings in this order. */
@@ -163,6 +164,8 @@ data class Settings(
     val coreHeatStrip: Boolean = true,
     val chipAnchor: OverlayAnchor = OverlayAnchor.BOTTOM,
     val drawerAnchor: OverlayAnchor = OverlayAnchor.BOTTOM,
+    /** With Climber+ running: whose drawer / full page shows when both want one. */
+    val overlayPriority: OverlayPriority = OverlayPriority.WORKOUT,
     /** Drawer height as % of the screen. */
     val heightPercent: Int = 48,
     /** Overlay opacity 75..100. */

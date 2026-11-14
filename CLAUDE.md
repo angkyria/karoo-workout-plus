@@ -97,6 +97,13 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
 - Finished workout: `WorkoutEngine.holdComplete` keeps the completed state (the
   summary table) if Karoo drops the workout right after its last interval ran out,
   until the ride ends or a workout loads. Unverified what Karoo actually does.
+- **Climber+ neighbor** (`overlay/Neighbor.kt`, `NeighborLink`): both apps broadcast
+  what they show (`com.angkyria.karoo.overlay.STATE`, NONE / CHIP / PANEL, sent to the
+  other package only, resent every 10 s, stale after 25 s). Two bottom chips sit side
+  by side (Workout+ right, Climber+ left, ≤ 47 % wide, text shrunk to fit); a chip
+  gives way to the other's drawer / full page; two panels: setting `overlayPriority`
+  (broadcast to Climber+) keeps one. The fork at github.com/angkyria/karoo-climber-plus
+  carries the same file — change both together.
 - **`WorkoutPageField`** — the "Workout+ page" graphical data type; a page marker
   (and a countdown under the overlay).
 - **`data/CoreHeat`** — CORE sensor + CORE Heat extension (`TYPE_EXT::coreheat::*`,

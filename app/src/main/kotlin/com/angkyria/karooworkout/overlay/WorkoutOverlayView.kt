@@ -1065,23 +1065,26 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
             canvas.drawRoundRect(tmp, h / 2, h / 2, bgPaint)
         }
         val (t, time) = chipParts(s)
-        textPaint.textSize = h * CHIP_TEXT_FRACTION
+        // a window capped narrower than its content (beside Climber+'s chip): shrink to fit
+        val fit = (width.toFloat() / chipContentWidth(height).coerceAtLeast(1)).coerceAtMost(1f)
+        val textSize = h * CHIP_TEXT_FRACTION * fit
+        textPaint.textSize = textSize
         val timeW = textPaint.measureText(time)
-        val boxW = t?.let { chipBoxWidth(it, h) } ?: 0f
-        val boxGap = if (t != null) h * 0.25f else 0f
+        val boxW = t?.let { chipBoxWidth(it, h) * fit } ?: 0f
+        val boxGap = if (t != null) h * 0.25f * fit else 0f
         var x = (width - (boxW + boxGap + timeW)) / 2f
         if (t != null) {
             val inset = h * 0.15f
             tmp.set(x, inset, x + boxW, h - inset)
             fillPaint.color = WorkoutColors.status(t.status)
             canvas.drawRoundRect(tmp, h * 0.2f, h * 0.2f, fillPaint)
-            textPaint.textSize = h * CHIP_TEXT_FRACTION
+            textPaint.textSize = textSize
             val arrowW = if (hasArrow(t.status)) textPaint.textSize * 0.5f else 0f
             val gap = if (arrowW > 0) textPaint.textSize * 0.2f else 0f
-            drawValue(canvas, Format.output(t), t.status, x + h * 0.2f, h / 2, arrowW, gap)
+            drawValue(canvas, Format.output(t), t.status, x + h * 0.2f * fit, h / 2, arrowW, gap)
             x += boxW + boxGap
         }
-        textPaint.textSize = h * CHIP_TEXT_FRACTION
+        textPaint.textSize = textSize
         textPaint.textAlign = Paint.Align.LEFT
         val remaining = s.stepRemainingMs
         textPaint.color = when {

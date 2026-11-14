@@ -1,6 +1,7 @@
 package com.angkyria.karooworkout.settings
 
 import com.angkyria.karooworkout.data.PowerAverage
+import com.angkyria.karooworkout.overlay.OverlayPriority
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -188,6 +189,14 @@ private fun SettingsScreen(
         RadioRow("Top", settings.drawerAnchor == OverlayAnchor.TOP) {
             update { it.copy(drawerAnchor = OverlayAnchor.TOP) }
         }
+        SectionTitle("With Climber+: which opens")
+        OverlayPriority.entries.forEach { p ->
+            RadioRow(p.label, settings.overlayPriority == p) { update { it.copy(overlayPriority = p) } }
+        }
+        Hint(
+            "When both want a drawer or full page, this one shows and the other waits. " +
+                "Bottom chips sit side by side: Workout+ right, Climber+ left.",
+        )
         SectionTitle("Drawer height: ${settings.heightPercent}%")
         Slider(
             value = settings.heightPercent.toFloat(),

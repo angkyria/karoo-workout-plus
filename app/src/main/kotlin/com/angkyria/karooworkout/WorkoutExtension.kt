@@ -85,6 +85,7 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
         karooSystem = KarooSystemService(applicationContext)
         settingsRepo = SettingsRepo(applicationContext)
         overlay = OverlayController(this)
+        overlay.start()
         hub = StreamHub(karooSystem)
 
         karooSystem.connect { connected ->
@@ -264,7 +265,7 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
         get() = this is RideState.Recording || this is RideState.Paused
 
     override fun onDestroy() {
-        overlay.hide()
+        overlay.stop()
         consumerIds.forEach { karooSystem.removeConsumer(it) }
         hub.clear()
         scope.cancel()

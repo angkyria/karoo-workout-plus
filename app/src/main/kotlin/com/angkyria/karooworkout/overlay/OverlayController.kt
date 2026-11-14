@@ -48,6 +48,29 @@ class OverlayController(private val service: WorkoutExtension) {
     private var lastSettings: Settings? = null
     private var appliedParams: WindowManager.LayoutParams? = null
 
+    /** The last frame [show] drew, redrawn when Climber+ changes what it shows. */
+    private var lastFrame: Frame? = null
+
+    /** Our chip shares the bottom edge with Climber+'s: it takes the right half. */
+    private var chipBeside = false
+
+    private val neighbor = NeighborLink(service) { lastFrame?.let(::draw) }
+
+    private data class Frame(
+        val state: WorkoutUiState.Shown,
+        val settings: Settings,
+        val profile: RiderProfile,
+        val sysValues: Map<String, Map<String, Double>>,
+        val cues: CueFrame,
+    )
+
+    fun start() = neighbor.start()
+
+    fun stop() {
+        hide()
+        neighbor.stop()
+    }
+
     /**
      * True while the full workout page — the only place system data fields are drawn —
      * is on screen; the extension streams those fields only then.
@@ -87,17 +110,38 @@ class OverlayController(private val service: WorkoutExtension) {
             return
         }
         if (!foreground) startForeground()
+        val frame = Frame(state, settings, profile, sysValues, cues)
+        lastFrame = frame
+        draw(frame)
+    }
 
+    private fun draw(f: Frame) {
+        val settings = f.settings
         // pages that aren't taken over may hide the chip entirely
         val wanted = machine.size != Size.CHIP || settings.chipOnOtherPages
+        val own = when {
+            !wanted -> NeighborPanel.NONE
+            machine.size == Size.CHIP -> NeighborPanel.CHIP
+            else -> NeighborPanel.PANEL
+        }
+        val other = neighbor.otherNow()
+        val shown = if (NeighborRules.yields(own, other.panel, settings.overlayPriority == OverlayPriority.WORKOUT)) {
+            NeighborPanel.NONE
+        } else {
+            own
+        }
+        val chipBottom = settings.chipAnchor == OverlayAnchor.BOTTOM
+        neighbor.publish(shown, chipBottom, settings.overlayPriority)
+        chipBeside = NeighborRules.sideBySide(chipBottom, other)
+
         val current = view
-        if (!wanted) {
+        if (shown == NeighborPanel.NONE) {
             removeWindow()
         } else if (current == null) {
             val created = WorkoutOverlayView(service, machine)
             view = created
             // no relayout hook yet: the view is not attached to the window manager
-            created.update(state, settings, profile, sysValues, cues)
+            created.update(f.state, settings, f.profile, f.sysValues, f.cues)
             val params = layoutParams(created, settings)
             windowManager.addView(created, params)
             appliedParams = params
@@ -109,7 +153,7 @@ class OverlayController(private val service: WorkoutExtension) {
                 )
             }
         } else {
-            current.update(state, settings, profile, sysValues, cues)
+            current.update(f.state, settings, f.profile, f.sysValues, f.cues)
             applyLayoutIfChanged(current, settings)
         }
         fieldsVisible.value = view != null && machine.size == Size.FULL
@@ -118,7 +162,9 @@ class OverlayController(private val service: WorkoutExtension) {
     fun hide() {
         if (workoutActive) machine.onWorkoutEnded()
         workoutActive = false
+        lastFrame = null
         removeWindow()
+        neighbor.publish(NeighborPanel.NONE, chipBottom = true, lastSettings?.overlayPriority ?: OverlayPriority.WORKOUT)
         fieldsVisible.value = false
         if (foreground) {
             service.stopForeground(Service.STOP_FOREGROUND_REMOVE)
@@ -136,17 +182,12 @@ class OverlayController(private val service: WorkoutExtension) {
 
     /** Re-apply the window for the machine's current size (gesture, page change). */
     private fun refresh() {
-        val settings = lastSettings ?: return
         val v = view
         if (v == null || !v.isAttachedToWindow) return
-        if (machine.size == Size.CHIP && !settings.chipOnOtherPages) {
-            removeWindow()
-            fieldsVisible.value = false
-            return
-        }
-        applyLayoutIfChanged(v, settings)
-        v.onPanelChanged()
-        fieldsVisible.value = machine.size == Size.FULL
+        // the new size may hide the window or move it beside Climber+'s chip
+        val f = lastFrame ?: return
+        draw(f)
+        view?.onPanelChanged()
     }
 
     /** Relayouts through WindowManager are costly — skip when nothing changed. */
@@ -191,7 +232,9 @@ class OverlayController(private val service: WorkoutExtension) {
                 val maxW = (metrics.widthPixels * CHIP_MAX_WIDTH_FRACTION).toInt()
                 val step = (CHIP_WIDTH_STEP_DP * metrics.density).toInt().coerceAtLeast(1)
                 val content = v.chipContentWidth(height)
-                width = (((content + step - 1) / step) * step).coerceIn(minW, maxW)
+                // beside Climber+'s chip: half the edge, the view shrinks its text to fit
+                val cap = if (chipBeside) (metrics.widthPixels * CHIP_BESIDE_WIDTH_FRACTION).toInt() else maxW
+                width = (((content + step - 1) / step) * step).coerceIn(minW, cap)
             }
             Size.DRAWER -> {
                 width = metrics.widthPixels
@@ -221,7 +264,10 @@ class OverlayController(private val service: WorkoutExtension) {
                 Size.FULL -> OverlayAnchor.BOTTOM
             }
             val top = anchor == OverlayAnchor.TOP
-            gravity = (if (top) Gravity.TOP else Gravity.BOTTOM) or Gravity.CENTER_HORIZONTAL
+            val beside = size == Size.CHIP && chipBeside
+            gravity = (if (top) Gravity.TOP else Gravity.BOTTOM) or
+                (if (beside) Gravity.RIGHT else Gravity.CENTER_HORIZONTAL)
+            if (beside) x = (metrics.widthPixels * CHIP_BESIDE_EDGE_FRACTION).toInt()
             // top-anchored panels start below the status bar, the strip FULL keeps visible
             if (size != Size.FULL && top) y = topInsetPx
             // keep the bottom chip clear of Karoo's own bottom drawers
@@ -272,6 +318,10 @@ class OverlayController(private val service: WorkoutExtension) {
         private const val CHIP_WIDTH_STEP_DP = 8
         private const val CHIP_HEIGHT_FRACTION = 0.075
         private const val CHIP_EDGE_OFFSET_FRACTION = 0.03
+
+        // beside Climber+'s chip (left half): ours fills the right half, a gap between
+        private const val CHIP_BESIDE_WIDTH_FRACTION = 0.47
+        private const val CHIP_BESIDE_EDGE_FRACTION = 0.02
 
         /** Height of the ride app's header row (ride time, battery, clock). */
         private const val RIDE_HEADER_DP = 32
