@@ -118,10 +118,38 @@ class PlanTrackerTest {
     fun `first sample of a step is not judged`() {
         val t = tracker()
         t.at(shown(0, 1_000_000))
-        // The new step's first samples still carry the previous target.
+        // The new steps' first samples still carry the previous target.
         t.at(shown(1, 899_000, min = 151.0, max = 159.0))
         assertTrue(t.at(shown(2, 299_000, min = 220.0, max = 232.0)) is NextList.Planned)
         assertNotNull(t.matched)
+    }
+
+    @Test
+    fun `the same stale range is judged once 3 s into the step`() {
+        val t = tracker()
+        t.at(shown(0, 1_000_000))
+        t.at(shown(1, 897_000, min = 151.0, max = 159.0))
+        assertTrue(t.at(shown(2, 297_000, min = 220.0, max = 232.0)) is NextList.Unknown)
+    }
+
+    @Test
+    fun `a matched open-step plan has unknown starts after the open step`() {
+        val open = LibraryWorkout(
+            "open", "Open", TODAY, TODAY,
+            listOf(
+                LibraryEntry.Step("A", 600_000L, null),
+                LibraryEntry.Step("B", null, null),
+                LibraryEntry.Step("C", 300_000L, null),
+                LibraryEntry.Step("D", 300_000L, null),
+            ),
+        )
+        val t = PlanTracker().apply { onLibrary(listOf(open)) }
+        val s = shown(0, 500_000, min = null, max = null, count = 4, totalRemainingMs = 5_000_000)
+        val rows = (t.at(s) as NextList.Planned).rows
+        assertEquals(3, rows.size)
+        assertEquals(500_000L, rows[0].startsInMs)
+        assertNull(rows[1].startsInMs)
+        assertNull(rows[2].startsInMs)
     }
 
     @Test

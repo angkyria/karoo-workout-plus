@@ -64,6 +64,34 @@ class PlanMatcherTest {
         assertNull(PlanMatcher.match(listOf(plan), late(remaining = 950_000), TODAY))
     }
 
+    private fun openPlan() = LibraryWorkout(
+        "open", "Open", TODAY, TODAY,
+        listOf(
+            LibraryEntry.Step("A", 600_000L, LibraryTarget(TargetKind.POWER, null, 151.0, 159.0, false)),
+            LibraryEntry.Step("B", null, LibraryTarget(TargetKind.POWER, null, 220.0, 232.0, false)),
+            LibraryEntry.Step("C", 300_000L, LibraryTarget(TargetKind.POWER, null, 146.0, 154.0, false)),
+        ),
+    )
+
+    @Test fun `watched start matches a plan with an open step`() {
+        val run = watched(count = 3, remaining = 600_000, total = 5_000_000)
+        assertEquals(openPlan(), PlanMatcher.match(listOf(openPlan()), run, TODAY))
+        // Count and the first target range still apply.
+        assertNull(PlanMatcher.match(listOf(openPlan()), run.copy(stepCount = 4), TODAY))
+        assertNull(PlanMatcher.match(listOf(openPlan()), run.copy(targetMin = 100.0, targetMax = 110.0), TODAY))
+    }
+
+    @Test fun `late join matches with an open step ahead`() {
+        val run = RunObservation(
+            stepCount = 3, stepIndex = 0, stepRemainingMs = 400_000, totalRemainingMs = 9_000_000,
+            elapsedMs = 0, watchedStart = false, targetMin = 151.0, targetMax = 159.0,
+            targetImplied = false, scalePercent = 100,
+        )
+        assertEquals(openPlan(), PlanMatcher.match(listOf(openPlan()), run, TODAY))
+        assertNull(PlanMatcher.match(listOf(openPlan()), run.copy(stepRemainingMs = 700_000), TODAY))
+        assertNull(PlanMatcher.match(listOf(openPlan()), run.copy(targetMin = 100.0, targetMax = 110.0), TODAY))
+    }
+
     @Test fun `identical twins pick today then latest update`() {
         val old = todayWorkout("old", plannedDateMs = TODAY - 3 * DAY, updatedAtMs = TODAY + 10)
         val now = todayWorkout("now", plannedDateMs = TODAY, updatedAtMs = TODAY)

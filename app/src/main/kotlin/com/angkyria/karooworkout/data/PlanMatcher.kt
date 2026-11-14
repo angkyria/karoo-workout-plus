@@ -20,7 +20,12 @@ data class RunObservation(
     val scalePercent: Int?,
 )
 
-/** Picks the library workout Karoo is running; a wrong plan is worse than none. */
+/**
+ * Picks the library workout Karoo is running; a wrong plan is worse than none.
+ * Open steps (no fixed length) are allowed: the checks that need their length
+ * (first length, whole-workout total, remaining total, "length >= remaining")
+ * are skipped, while the step count and the current target range still apply.
+ */
 object PlanMatcher {
     private const val FIRST_LENGTH_TOLERANCE_MS = 2_000L
     private const val TOTAL_TOLERANCE_MS = 5_000L
@@ -49,18 +54,19 @@ object PlanMatcher {
         val remaining = run.stepRemainingMs ?: return false
         val totalRemaining = run.totalRemainingMs ?: return false
         val current = plan[index]
-        val length = current.lengthMs ?: return false
+        val length = current.lengthMs
         if (run.watchedStart) {
             val total = plan.totalMs
-            if (index != 0 || total == null || total <= 0) return false
-            if (abs(remaining - length) > FIRST_LENGTH_TOLERANCE_MS) return false
-            if (abs(run.elapsedMs + totalRemaining - total) > TOTAL_TOLERANCE_MS) return false
+            if (index != 0 || (total != null && total <= 0)) return false
+            if (length != null && abs(remaining - length) > FIRST_LENGTH_TOLERANCE_MS) return false
+            if (total != null && abs(run.elapsedMs + totalRemaining - total) > TOTAL_TOLERANCE_MS) return false
         } else {
-            if (length < remaining) return false
+            if (length != null && length < remaining) return false
             val after = plan.drop(index + 1)
-            if (after.any { it.lengthMs == null }) return false
-            val rest = remaining + after.sumOf { it.lengthMs!! }
-            if (abs(totalRemaining - rest) > TOTAL_TOLERANCE_MS) return false
+            if (after.none { it.lengthMs == null }) {
+                val rest = remaining + after.sumOf { it.lengthMs!! }
+                if (abs(totalRemaining - rest) > TOTAL_TOLERANCE_MS) return false
+            }
         }
         return rangeAgrees(current.target, run.targetMin, run.targetMax, run.targetImplied, run.scalePercent) != false
     }
