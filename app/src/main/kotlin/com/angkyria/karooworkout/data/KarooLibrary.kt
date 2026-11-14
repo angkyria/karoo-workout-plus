@@ -8,10 +8,12 @@ import android.os.Bundle
 import android.os.IBinder
 import android.os.Parcel
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.resume
 
@@ -27,7 +29,14 @@ class KarooLibrary(private val context: Context) {
                 val conn = Conn()
                 connection = conn
                 val binder = bind(conn) ?: return@withTimeout Fail("bind failed")
-                withContext(Dispatchers.IO) { readAll(binder) }
+                // Own scope: a stuck transact cannot be interrupted, so the timeout abandons
+                // this thread (its Parcels recycle when it returns; the late result is dropped).
+                val job = CoroutineScope(Dispatchers.IO).async { readAll(binder) { isActive } }
+                try {
+                    job.await()
+                } finally {
+                    job.cancel()
+                }
             }
             when (result) {
                 is Fail -> {
@@ -84,7 +93,7 @@ class KarooLibrary(private val context: Context) {
     private class Ok(val workouts: List<LibraryWorkout>) : Outcome
     private class Fail(val reason: String) : Outcome
 
-    private fun readAll(binder: IBinder): Outcome {
+    private fun readAll(binder: IBinder, active: () -> Boolean): Outcome {
         val loader = try {
             context.createPackageContext(PACKAGE, Context.CONTEXT_INCLUDE_CODE or Context.CONTEXT_IGNORE_SECURITY).classLoader
         } catch (e: Exception) {
@@ -92,13 +101,16 @@ class KarooLibrary(private val context: Context) {
         }
         val out = ArrayList<LibraryWorkout>()
         var skip = 0
-        while (true) {
+        for (pageNo in 0 until MAX_PAGES) {
+            if (!active()) return Fail("cancelled")
             val items = page(binder, loader, skip) ?: return Fail("no reply at skip $skip")
             items.forEach { item -> item?.let { LibraryMapper.workout(it) }?.let(out::add) }
-            if (items.size < PAGE) break
+            if (items.size < PAGE) {
+                return if (out.isEmpty()) Fail("no workouts mapped") else Ok(out)
+            }
             skip += PAGE
         }
-        return if (out.isEmpty()) Fail("no workouts mapped") else Ok(out)
+        return Fail("more than $MAX_PAGES pages")
     }
 
     private fun page(binder: IBinder, loader: ClassLoader, skip: Int): List<*>? {
@@ -138,6 +150,7 @@ class KarooLibrary(private val context: Context) {
         const val KEY_VALUE = "value"
         const val TX_GET_LIST = 9
         const val PAGE = 10
+        const val MAX_PAGES = 50
         const val TIMEOUT_MS = 5_000L
     }
 }
