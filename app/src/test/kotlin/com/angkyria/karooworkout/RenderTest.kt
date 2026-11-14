@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import androidx.test.core.app.ApplicationProvider
 import com.angkyria.karooworkout.data.CoreHeat
 import com.angkyria.karooworkout.data.CueFrame
@@ -336,11 +337,66 @@ class RenderTest {
         assertEquals(0f, off.listScroll.offsetPx)
     }
 
+    // gesture tests at the Karoo 2's density (300 dpi ~ xhdpi): touch slop 16 px
+
+    @Test
+    @Config(qualifiers = "xhdpi")
+    fun aSmallDragDoesNotToggleTheTarget() {
+        val slop = ViewConfiguration.get(context).scaledTouchSlop
+        // a plain tap on the target still toggles it
+        val tapped = pageView(planned(300)).also { draw("page-list-tap", it) }
+        touch(tapped, listOf(240f to 100f, 240f to 100f))
+        assertEquals(TargetDisplay.NUMERIC, tapped.targetDisplay)
+        // within the slop a touch is a tap; past it, it scrolls and is no tap — never both
+        for (d in listOf(4, 13, slop - 1)) {
+            val view = pageView(planned(300)).also { draw("page-list-tap", it) }
+            touch(view, listOf(240f to 100f, 240f to 100f - d * 0.6f, 240f to 100f - d, 240f to 100f - d))
+            assertEquals("$d px", 0f, view.listScroll.offsetPx)
+            assertEquals("$d px", TargetDisplay.NUMERIC, view.targetDisplay)
+        }
+        for (d in listOf(slop + 2, slop + 10)) {
+            val view = pageView(planned(300)).also { draw("page-list-tap", it) }
+            touch(view, listOf(240f to 100f, 240f to 100f - d, 240f to 100f - d - 8, 240f to 100f - d - 8))
+            assertEquals("$d px", 8f, view.listScroll.offsetPx)
+            assertEquals("$d px", TargetDisplay.VISUAL, view.targetDisplay)
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "xhdpi")
+    fun aHorizontalSwipeWithVerticalDriftStillChangesThePage() {
+        val slop = ViewConfiguration.get(context).scaledTouchSlop
+        val view = pageView(planned(300)).also { draw("page-list-swipe", it) }
+        val swipes = mutableListOf<Boolean>()
+        view.onPageSwipe = { swipes += it }
+        // the glove lands, drifts up past the slop, then swipes left
+        val y = 400f - slop - 4
+        touch(view, listOf(380f to 400f, 378f to y, 300f to y, 200f to y, 100f to y, 80f to y), stepMs = 20)
+        assertEquals(listOf(true), swipes)
+        assertEquals(0f, view.listScroll.offsetPx)
+    }
+
+    /** DOWN at the first point, MOVE through the rest, UP at the last; [stepMs] apart. */
+    private fun touch(view: View, points: List<Pair<Float, Float>>, stepMs: Long = 30) {
+        val base = nextGestureMs.also { nextGestureMs += 10_000 }
+        points.forEachIndexed { i, (x, y) ->
+            val action = when (i) {
+                0 -> MotionEvent.ACTION_DOWN
+                points.lastIndex -> MotionEvent.ACTION_UP
+                else -> MotionEvent.ACTION_MOVE
+            }
+            val e = MotionEvent.obtain(base, base + i * stepMs, action, x, y, 0)
+            view.onTouchEvent(e)
+            e.recycle()
+        }
+    }
+
     /** A slow finger drag (no fling) from [fromY] to [toY] down the middle of the view. */
     private fun drag(view: View, fromY: Float, toY: Float) {
         val x = SCREEN_W / 2f
         val steps = 20
-        fun event(action: Int, t: Long, y: Float) = MotionEvent.obtain(0L, t, action, x, y, 0).also {
+        val base = nextGestureMs.also { nextGestureMs += 10_000 }
+        fun event(action: Int, t: Long, y: Float) = MotionEvent.obtain(base, base + t, action, x, y, 0).also {
             view.onTouchEvent(it)
             it.recycle()
         }
@@ -350,6 +406,13 @@ class RenderTest {
     }
 
     private companion object {
+        /**
+         * Gesture times grow across tests: Robolectric's pooled VelocityTracker shadow
+         * keeps old movements' times after clear(), and an overlapping old gesture
+         * would leak into this one's fling velocity.
+         */
+        var nextGestureMs = 1_000_000L
+
         const val SCREEN_W = 480
         const val SCREEN_H = 800
         const val RIDE_HEADER = 60

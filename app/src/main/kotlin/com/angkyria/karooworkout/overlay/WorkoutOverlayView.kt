@@ -13,6 +13,7 @@ import android.os.SystemClock
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import com.angkyria.karooworkout.R
 import com.angkyria.karooworkout.data.CoreHeat
 import com.angkyria.karooworkout.data.CueFrame
@@ -85,11 +86,18 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
     /** The offset the last frame was drawn at: hit areas live in page coordinates. */
     private var drawnOffsetPx = 0f
 
-    // list mode: this touch is scrolling the page (decided past the touch slop)
+    // list mode: this touch is scrolling the page, or is locked horizontal (a page
+    // swipe) — decided once the touch leaves the slop, the same slop that ends a tap
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
     private var scrolling = false
+    private var horizontalTouch = false
     private var lastDragY = 0f
+    private var scrollStartPx = 0f
 
     private val display: TargetDisplay get() = displayOverride ?: settings.targetDisplay
+
+    /** What the target shows now (visual or numeric), for tests. */
+    internal val targetDisplay: TargetDisplay get() = display
 
     // ------------------------------------------------------------------ input
 
@@ -100,6 +108,8 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
 
             override fun onSingleTapUp(e: MotionEvent): Boolean {
                 gestureHandled = true
+                // a touch that scrolled the page is no tap
+                if (scrolling) return true
                 // hit areas were recorded on the scrolled page
                 val y = e.y + drawnOffsetPx
                 when {
@@ -120,14 +130,10 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
                 if (e1 == null) return false
                 val dx = e2.x - e1.x
                 val dy = e2.y - e1.y
-                if (listMode() && (scrolling || abs(dy) >= abs(dx))) {
-                    if (abs(velocityY) < SWIPE_MIN_VELOCITY) return false
-                    gestureHandled = true
-                    listScroll.fling(velocityY, listMaxPx(), e2.eventTime)
-                    postInvalidateOnAnimation()
-                    return true
-                }
-                if (abs(dx) > abs(dy)) {
+                val list = listMode()
+                // a swipe that drifted into a scroll but barely moved the page is still a swipe
+                val barelyScrolled = !scrolling || abs(listScroll.offsetPx - scrollStartPx) < touchSlop
+                if (abs(dx) > abs(dy) && (!list || barelyScrolled)) {
                     // full page covers the ride app: keep its horizontal page swipe working
                     if (machine.size != Size.FULL || abs(dx) < SWIPE_MIN_DISTANCE_PX ||
                         abs(velocityX) < SWIPE_MIN_VELOCITY
@@ -135,7 +141,15 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
                         return false
                     }
                     gestureHandled = true
+                    if (list) listScroll.offsetPx = scrollStartPx
                     onPageSwipe?.invoke(dx < 0)
+                    return true
+                }
+                if (list) {
+                    if (horizontalTouch || abs(velocityY) < SWIPE_MIN_VELOCITY) return false
+                    gestureHandled = true
+                    listScroll.fling(velocityY, listMaxPx(), e2.eventTime)
+                    postInvalidateOnAnimation()
                     return true
                 }
                 if (abs(dy) < SWIPE_MIN_DISTANCE_PX || abs(velocityY) < SWIPE_MIN_VELOCITY) return false
@@ -168,6 +182,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
             downY = event.y
             gestureHandled = false
             scrolling = false
+            horizontalTouch = false
         }
         if (listMode()) listTouch(event)
         val consumed = gestureDetector.onTouchEvent(event)
@@ -185,11 +200,18 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 listScroll.touched(event.eventTime)
-                lastDragY = event.y
+                scrollStartPx = listScroll.offsetPx
             }
             MotionEvent.ACTION_MOVE -> {
-                val dy = event.y - downY
-                if (!scrolling && abs(dy) > SCROLL_SLOP_PX && abs(dy) > abs(event.x - downX)) scrolling = true
+                if (!scrolling && !horizontalTouch) {
+                    val dx = event.x - downX
+                    val dy = event.y - downY
+                    if (dx * dx + dy * dy <= touchSlop * touchSlop) return
+                    // biased to horizontal like the slow-drag rule: gloved page swipes drift
+                    if (abs(dy) > abs(dx) * 1.5f) scrolling = true else horizontalTouch = true
+                    // scroll from here on: no jump by the slop
+                    lastDragY = event.y
+                }
                 if (!scrolling) return
                 listScroll.drag(event.y - lastDragY, listMaxPx())
                 listScroll.touched(event.eventTime)
@@ -1244,9 +1266,6 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
 
         private const val SWIPE_MIN_DISTANCE_PX = 50f
         private const val SWIPE_MIN_VELOCITY = 250f
-
-        /** List mode: a vertical move past this starts scrolling (taps stay taps). */
-        private const val SCROLL_SLOP_PX = 12f
 
         /** A vertical drag at least this long minimizes / opens even when slow. */
         private const val DRAG_MIN_DISTANCE_PX = 90f
