@@ -19,6 +19,7 @@ import com.angkyria.karooworkout.data.WorkoutEngine
 import com.angkyria.karooworkout.data.WorkoutStreams
 import com.angkyria.karooworkout.data.WorkoutUiState
 import com.angkyria.karooworkout.debug.DemoWorkout
+import com.angkyria.karooworkout.overlay.BottomEdge
 import com.angkyria.karooworkout.overlay.IntervalListDrawer
 import com.angkyria.karooworkout.overlay.PanelMachine.Size
 import com.angkyria.karooworkout.overlay.PanelMachine
@@ -125,7 +126,7 @@ class RenderTest {
         val h = when (size) {
             Size.FULL -> SCREEN_H - RIDE_HEADER
             Size.DRAWER -> SCREEN_H * settings.heightPercent / 100
-            Size.CHIP -> 60
+            Size.CHIP -> BottomEdge.chipHeightPx(KAROO_DENSITY)
         }
         val w = if (size == Size.CHIP) view.chipContentWidth(h).coerceAtLeast(SCREEN_W * 3 / 10) else SCREEN_W
         view.measure(
@@ -329,6 +330,16 @@ class RenderTest {
     }
 
     @Test
+    fun slimChip() {
+        val view = pageView(ridden(190), Settings(pageMode = PageMode.DRAWER_ONLY), Size.CHIP)
+        assertEquals(28, view.height)
+        // the slim bar still holds the target box and the countdown on one line
+        assertTrue(view.chipContentWidth(view.height) <= SCREEN_W * 0.9)
+        val bitmap = draw("chip-slim", view)
+        assertNotEquals(0, bitmap.getPixel(bitmap.width / 2, bitmap.height / 2))
+    }
+
+    @Test
     fun chip() {
         val bitmap = render("chip", ridden(190), Settings(pageMode = PageMode.DRAWER_ONLY), Size.CHIP)
         assertNotEquals(0, bitmap.getPixel(bitmap.width / 2, bitmap.height / 2))
@@ -493,5 +504,7 @@ class RenderTest {
         const val SCREEN_W = 480
         const val SCREEN_H = 800
         const val RIDE_HEADER = 60
+        /** Karoo 2: 300 dpi. */
+        const val KAROO_DENSITY = 1.875f
     }
 }

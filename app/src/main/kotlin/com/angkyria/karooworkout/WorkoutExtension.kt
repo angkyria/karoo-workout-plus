@@ -26,6 +26,7 @@ import io.hammerhead.karooext.extension.KarooExtension
 import io.hammerhead.karooext.models.ActiveRidePage
 import io.hammerhead.karooext.models.DataType
 import io.hammerhead.karooext.models.PlayBeepPattern
+import io.hammerhead.karooext.models.OnNavigationState
 import io.hammerhead.karooext.models.RideState
 import io.hammerhead.karooext.models.UserProfile
 import java.util.Calendar
@@ -131,6 +132,15 @@ class WorkoutExtension : KarooExtension(EXTENSION_ID, BuildConfig.VERSION_NAME) 
             Log.d(TAG, "page workout=$workoutPage map=${event.page.mapPage} elements=$ids")
             Diagnostics.page.value = ids to workoutPage
             scope.launch { overlay.onPageChanged(event.page, workoutPage, settings.pageMode) }
+        }
+
+        // The ride app shrinks its pages for a pill at the bottom while it navigates
+        consumerIds += karooSystem.addConsumer<OnNavigationState> { event ->
+            val state = event.state
+            val navigating = state is OnNavigationState.NavigationState.NavigatingRoute ||
+                state is OnNavigationState.NavigationState.NavigatingToDestination
+            Log.d(TAG, "navigating=$navigating")
+            scope.launch { overlay.setNavigating(navigating) }
         }
 
         // The workout gate stream runs for the whole ride (cheap, one stream);
