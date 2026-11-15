@@ -330,6 +330,27 @@ class RenderTest {
     }
 
     @Test
+    fun chipLooksLikeTheNavigationPill() {
+        // one solid pill in the target's status color, like "Rerouting"
+        val s = ridden(190)
+        val bitmap = render("chip-status", s, Settings(pageMode = PageMode.DRAWER_ONLY), Size.CHIP)
+        assertEquals(WorkoutColors.status(s.primary!!.status), bitmap.getPixel(bitmap.width / 2, 3))
+    }
+
+    @Test
+    fun compactChipIsJustTheCountdown() {
+        val s = ridden(190)
+        val full = pageView(s, Settings(pageMode = PageMode.DRAWER_ONLY), Size.CHIP)
+        val wide = full.chipContentWidth(64)
+        full.compactChip = true
+        // no output, and only a thin margin: the countdown keeps its size in the 88 px slot
+        val compact = full.chipContentWidth(64)
+        assertTrue(compact < wide)
+        assertTrue(compact <= 88 * 1.25)
+        draw("chip-compact", full)
+    }
+
+    @Test
     fun pillChip() {
         val view = pageView(ridden(190), Settings(pageMode = PageMode.DRAWER_ONLY), Size.CHIP)
         assertEquals(64, view.height)

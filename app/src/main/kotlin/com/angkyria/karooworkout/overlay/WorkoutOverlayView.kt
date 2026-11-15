@@ -69,6 +69,9 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
     /** Controller hook: the window must change size or flags. */
     var onRelayoutNeeded: (() -> Unit)? = null
 
+    /** Beside the navigation pill while a route is navigated: the countdown alone. */
+    var compactChip = false
+
     /** Controller hook: a horizontal swipe asks the ride app for the next / previous page. */
     var onPageSwipe: ((next: Boolean) -> Unit)? = null
 
@@ -1311,63 +1314,76 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
             s.stepRemainingMs == null -> "OPEN"
             else -> Format.countdown(s.stepRemainingMs)
         }
-        return s.primary to if (s.primary == null) "${s.stepIndex + 1}/${s.stepCount}  $time" else time
+        return s.primary to if (s.primary == null && !compactChip) "${s.stepIndex + 1}/${s.stepCount}  $time" else time
     }
+
+    /** The output on the chip; none on the compact chip, it shows the countdown alone. */
+    private fun chipValue(t: Target?): Target? = t?.takeIf { !compactChip }
 
     /** Width the chip window needs at [heightPx] tall (the window sizes to its text). */
     fun chipContentWidth(heightPx: Int): Int {
         val s = state ?: return 0
         val (t, time) = chipParts(s)
         textPaint.textSize = heightPx * CHIP_TEXT_FRACTION
-        var w = textPaint.measureText(time) + heightPx * 0.7f
-        if (t != null) w += chipBoxWidth(t, heightPx.toFloat()) + heightPx * 0.25f
+        // the compact chip beside the navigation pill is narrow: a thin margin
+        var w = textPaint.measureText(time) + heightPx * (if (compactChip) 0.25f else 0.7f)
+        chipValue(t)?.let { w += chipValueWidth(it) + heightPx * 0.35f }
         return w.toInt()
     }
 
-    private fun chipBoxWidth(t: Target, h: Float): Float {
-        textPaint.textSize = h * CHIP_TEXT_FRACTION
+    /** The output and its under / over arrow, at the paint's current size. */
+    private fun chipValueWidth(t: Target): Float {
         val arrowW = if (hasArrow(t.status)) textPaint.textSize * 0.5f + textPaint.textSize * 0.2f else 0f
-        return textPaint.measureText(Format.output(t)) + arrowW + h * 0.4f
+        return textPaint.measureText(Format.output(t)) + arrowW
     }
 
+    /**
+     * One solid pill like the ride app's navigation pill ("Rerouting"): the target's
+     * status color, the output and the countdown in one line. Compact (beside that
+     * pill while navigating): the countdown alone.
+     */
     private fun drawChip(canvas: Canvas, s: WorkoutUiState.Shown) {
         val h = height.toFloat()
         tmp.set(0f, 0f, width.toFloat(), h)
-        val flash = flash()
-        if (flash != null) {
-            fillPaint.color = flashColor(flash)
-            canvas.drawRoundRect(tmp, h / 2, h / 2, fillPaint)
-        } else {
-            canvas.drawRoundRect(tmp, h / 2, h / 2, bgPaint)
-        }
         val (t, time) = chipParts(s)
-        // a window capped narrower than its content (beside Climber+'s chip): shrink to fit
+        val flash = flash()
+        fillPaint.color = when {
+            flash != null -> flashColor(flash)
+            t != null -> WorkoutColors.status(t.status)
+            else -> WorkoutColors.PANEL
+        }
+        canvas.drawRoundRect(tmp, h / 2, h / 2, fillPaint)
+        // a window capped narrower than its content (beside Climber+'s chip or the navigation pill): shrink to fit
         val fit = (width.toFloat() / chipContentWidth(height).coerceAtLeast(1)).coerceAtMost(1f)
         val textSize = h * CHIP_TEXT_FRACTION * fit
         textPaint.textSize = textSize
+        val value = chipValue(t)
+        val valueW = value?.let { chipValueWidth(it) } ?: 0f
+        val valueGap = if (value != null) h * 0.35f * fit else 0f
         val timeW = textPaint.measureText(time)
-        val boxW = t?.let { chipBoxWidth(it, h) * fit } ?: 0f
-        val boxGap = if (t != null) h * 0.25f * fit else 0f
-        var x = (width - (boxW + boxGap + timeW)) / 2f
-        if (t != null) {
-            val inset = h * 0.15f
-            tmp.set(x, inset, x + boxW, h - inset)
-            fillPaint.color = WorkoutColors.status(t.status)
-            canvas.drawRoundRect(tmp, h * 0.2f, h * 0.2f, fillPaint)
-            textPaint.textSize = textSize
-            val arrowW = if (hasArrow(t.status)) textPaint.textSize * 0.5f else 0f
-            val gap = if (arrowW > 0) textPaint.textSize * 0.2f else 0f
-            drawValue(canvas, Format.output(t), t.status, x + h * 0.2f * fit, h / 2, arrowW, gap)
-            x += boxW + boxGap
-        }
-        textPaint.textSize = textSize
-        textPaint.textAlign = Paint.Align.LEFT
+        var x = (width - (valueW + valueGap + timeW)) / 2f
         val remaining = s.stepRemainingMs
-        textPaint.color = when {
+        val textColor = when {
             flash != null -> WorkoutColors.TEXT_DARK
+            t != null -> WorkoutColors.onStatus(t.status)
             remaining != null && remaining in 1..ENDING_MS -> WorkoutColors.ENDING
             else -> Color.WHITE
         }
+        if (value != null) {
+            val arrowW = if (hasArrow(value.status)) textSize * 0.5f else 0f
+            val gap = if (arrowW > 0) textSize * 0.2f else 0f
+            if (arrowW > 0) {
+                fillPaint.color = textColor
+                drawArrow(canvas, x, h / 2, arrowW, up = value.status == TargetStatus.UNDER)
+            }
+            textPaint.color = textColor
+            textPaint.textAlign = Paint.Align.LEFT
+            canvas.drawText(Format.output(value), x + arrowW + gap, h / 2 + capHeight(textPaint) / 2, textPaint)
+            x += valueW + valueGap
+        }
+        textPaint.textSize = textSize
+        textPaint.textAlign = Paint.Align.LEFT
+        textPaint.color = textColor
         canvas.drawText(time, x, h / 2 + capHeight(textPaint) / 2, textPaint)
         textPaint.color = Color.WHITE
     }

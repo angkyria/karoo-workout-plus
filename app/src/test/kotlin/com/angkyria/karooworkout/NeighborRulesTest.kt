@@ -69,25 +69,22 @@ class NeighborRulesTest {
     }
 
     @Test
-    fun `while navigating the chip sits whole above the pill`() {
-        val bottom = 800 - BottomEdge.chipOffsetPx(true, 1.875f, 800)
-        val top = bottom - BottomEdge.chipHeightPx(1.875f)
-        assertTrue(bottom <= 712)
-        // over the bottom of the shrunk fields (they end at about y 700), not far up the page
-        assertTrue(top >= 620)
+    fun `the chip sits in the navigation pill's strip`() {
+        assertEquals(24, BottomEdge.chipOffsetPx(800))
+        // "Rerouting" runs y 712-775: same row
+        assertEquals(800 - 24 - 64, 712)
     }
 
     @Test
-    fun `without navigation the chip sits at the bottom`() {
-        assertEquals(24, BottomEdge.chipOffsetPx(false, 1.875f, 800))
-    }
-
-    @Test
-    fun `while navigating the chip clears the pill`() {
-        val offset = BottomEdge.chipOffsetPx(true, 1.875f, 800)
-        assertEquals(94, offset)
-        // the pill's top is at about y 712 of 800
-        assertTrue(800 - offset <= 712)
+    fun `while navigating the chips fit beside the pill`() {
+        // "Rerouting" runs x 103-376 on a 480 px screen
+        val w = BottomEdge.navSlotWidthPx(480, 1.875f)
+        val edge = BottomEdge.slotEdgePx(1.875f)
+        assertEquals(88, w)
+        assertEquals(8, edge)
+        // left slot ends before the pill, right slot starts after it
+        assertTrue(edge + w <= 103)
+        assertTrue(480 - edge - w >= 376)
     }
 
     @Test

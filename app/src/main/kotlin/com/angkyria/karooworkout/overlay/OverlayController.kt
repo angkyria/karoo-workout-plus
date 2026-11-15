@@ -234,17 +234,24 @@ class OverlayController(private val service: WorkoutExtension) {
         val size = machine.size
         val width: Int
         val height: Int
+        // navigating: the ride app's pill takes the middle of the strip, ours joins it on the right
+        val navSlot = size == Size.CHIP && navigating && settings.chipAnchor == OverlayAnchor.BOTTOM
+        v.compactChip = navSlot
         when (size) {
             Size.CHIP -> {
                 height = BottomEdge.chipHeightPx(metrics.density)
-                // size to the content; quantized so a ticking digit doesn't relayout every second
-                val minW = (metrics.widthPixels * CHIP_MIN_WIDTH_FRACTION).toInt()
-                val maxW = (metrics.widthPixels * CHIP_MAX_WIDTH_FRACTION).toInt()
-                val step = (CHIP_WIDTH_STEP_DP * metrics.density).toInt().coerceAtLeast(1)
-                val content = v.chipContentWidth(height)
-                // beside Climber+'s chip: half the edge, the view shrinks its text to fit
-                val cap = if (chipBeside) (metrics.widthPixels * CHIP_BESIDE_WIDTH_FRACTION).toInt() else maxW
-                width = (((content + step - 1) / step) * step).coerceIn(minW, cap)
+                width = if (navSlot) {
+                    BottomEdge.navSlotWidthPx(metrics.widthPixels, metrics.density)
+                } else {
+                    // size to the content; quantized so a ticking digit doesn't relayout every second
+                    val minW = (metrics.widthPixels * CHIP_MIN_WIDTH_FRACTION).toInt()
+                    val maxW = (metrics.widthPixels * CHIP_MAX_WIDTH_FRACTION).toInt()
+                    val step = (CHIP_WIDTH_STEP_DP * metrics.density).toInt().coerceAtLeast(1)
+                    val content = v.chipContentWidth(height)
+                    // beside Climber+'s chip: half the edge, the view shrinks its text to fit
+                    val cap = if (chipBeside) (metrics.widthPixels * CHIP_BESIDE_WIDTH_FRACTION).toInt() else maxW
+                    (((content + step - 1) / step) * step).coerceIn(minW, cap)
+                }
             }
             Size.DRAWER -> {
                 width = metrics.widthPixels
@@ -277,13 +284,17 @@ class OverlayController(private val service: WorkoutExtension) {
             val top = anchor == OverlayAnchor.TOP
             val beside = size == Size.CHIP && chipBeside
             gravity = (if (top) Gravity.TOP else Gravity.BOTTOM) or
-                (if (beside) Gravity.RIGHT else Gravity.CENTER_HORIZONTAL)
-            if (beside) x = (metrics.widthPixels * CHIP_BESIDE_EDGE_FRACTION).toInt()
+                (if (beside || navSlot) Gravity.RIGHT else Gravity.CENTER_HORIZONTAL)
+            if (navSlot) {
+                x = BottomEdge.slotEdgePx(metrics.density)
+            } else if (beside) {
+                x = (metrics.widthPixels * CHIP_BESIDE_EDGE_FRACTION).toInt()
+            }
             // top-anchored panels start below the status bar, the strip FULL keeps visible
             if (size != Size.FULL && top) y = topInsetPx
-            // keep the bottom chip clear of Karoo's own bottom drawers and the navigation pill
+            // the bottom chip sits in the navigation pill's strip; panels stay above that pill
             if (size == Size.CHIP && !top) {
-                y = BottomEdge.chipOffsetPx(navigating, metrics.density, metrics.heightPixels)
+                y = BottomEdge.chipOffsetPx(metrics.heightPixels)
             } else if (!top) {
                 y = BottomEdge.panelOffsetPx(navigating, metrics.density)
             }

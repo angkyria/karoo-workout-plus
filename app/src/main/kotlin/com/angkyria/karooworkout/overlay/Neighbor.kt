@@ -13,8 +13,8 @@ import kotlin.math.roundToInt
  *  - both on a drawer / full page: the rider's [OverlayPriority] (a Workout+
  *    setting, broadcast to Climber+) keeps one; the other hides until it shrinks.
  *
- * [BottomEdge] places both apps' bottom windows the same way: a pill-sized chip, lifted
- * with the panels above the ride app's navigation pill while a route is navigated.
+ * [BottomEdge] places both apps' bottom windows the same way: a pill-sized chip in
+ * the ride app's navigation-pill strip, beside that pill while a route is navigated.
  */
 enum class NeighborPanel { NONE, CHIP, PANEL }
 
@@ -52,11 +52,11 @@ object NeighborRules {
 }
 
 /**
- * Where bottom-anchored windows sit. The chip is a pill as tall as the ride app's own
- * navigation pill ("Rerouting", 63 px on a Karoo 2): readable, and big enough to tap
- * with gloves (the rider found a slim bar too small). While navigating, the ride app
- * shrinks its pages for that pill at the bottom (≈ y 712–775 of 800): chip and panels
- * stay above it.
+ * Where bottom-anchored windows sit. The chip is a pill like the ride app's own
+ * navigation pill ("Rerouting": 63 px tall, x 103–376 of 480 on a Karoo 2) and sits
+ * in its strip. While a route is navigated that pill takes the middle, so the chips
+ * join it in the free space on either side (Climber+ left, Workout+ right), and the
+ * drawer / full page stop above it.
  */
 object BottomEdge {
     /** ≈ 64 px on a Karoo 2 (density 1.875), the navigation pill's height. */
@@ -65,13 +65,25 @@ object BottomEdge {
     /** Clear of the page dots: where the navigation pill sits. */
     const val EDGE_OFFSET_FRACTION = 0.03
 
-    /** The navigation pill and its margin: the bar's bottom at ≈ y 706. */
+    /** The navigation pill and its margin: panels stop at ≈ y 706. */
     const val NAV_GAP_DP = 50
+
+    /** The navigation pill's width ("Rerouting", 273 px on a Karoo 2). */
+    const val NAV_PILL_DP = 146
+
+    /** Between a side chip and the screen edge / the navigation pill. */
+    const val SLOT_MARGIN_DP = 4
 
     fun chipHeightPx(density: Float): Int = (CHIP_DP * density).roundToInt()
 
-    fun chipOffsetPx(navigating: Boolean, density: Float, screenH: Int): Int =
-        if (navigating) navGapPx(density) else (screenH * EDGE_OFFSET_FRACTION).toInt()
+    fun chipOffsetPx(screenH: Int): Int = (screenH * EDGE_OFFSET_FRACTION).toInt()
+
+    /** Width of a chip beside the navigation pill. */
+    fun navSlotWidthPx(screenW: Int, density: Float): Int =
+        ((screenW - NAV_PILL_DP * density) / 2 - 2 * SLOT_MARGIN_DP * density).toInt()
+
+    /** A side chip's distance from its screen edge. */
+    fun slotEdgePx(density: Float): Int = (SLOT_MARGIN_DP * density).roundToInt()
 
     /** Bottom offset of a bottom-anchored drawer / full page. */
     fun panelOffsetPx(navigating: Boolean, density: Float): Int = if (navigating) navGapPx(density) else 0
