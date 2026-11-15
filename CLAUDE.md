@@ -107,11 +107,15 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   reading (no sensor: all buckets NaN) gets its block tinted by its in-range share.
   After an extension restart the page holds only the intervals since then (records
   live in memory), while the headline time is Karoo's whole workout.
-- **Bottom edge** (`BottomEdge` in `Neighbor.kt`, same object in Climber+): the chip is
-  a 34 dp pill, as tall as the ride app's "Rerouting" pill (63 px; a slim 15 dp bar
-  was too small to read / tap with gloves), 3 % off the bottom — the pill's spot. While navigating (`OnNavigationState` NavigatingRoute / ToDestination;
-  Climber+: `NavigationRepo.route != null`) the ride app shrinks its pages for a pill
-  at the bottom, so chip, drawer and full page sit 50 dp up, above it.
+- **Bottom edge** (`BottomEdge` in `Neighbor.kt`, same object in Climber+): the chip
+  looks like the ride app's "Rerouting" pill (the rider's ask): 34 dp tall (63 px; a
+  slim 15 dp bar was too small to read / tap with gloves), one solid pill in the
+  target's status color, output + countdown, 3 % off the bottom — the pill's strip.
+  While navigating (`OnNavigationState` NavigatingRoute / ToDestination; Climber+:
+  `NavigationRepo.route != null`) the ride app shrinks its pages and puts its pill in
+  the middle of that strip (x 103–376): the chips join it in the side slots (Climber+
+  left, Workout+ right, 88 px; Workout+ shows the countdown alone), and the drawer /
+  full page stop 50 dp up, above it. Unverified: other pill texts wider than "Rerouting".
 - **Climber+ neighbor** (`overlay/Neighbor.kt`, `NeighborLink`): both apps broadcast
   what they show (`com.angkyria.karoo.overlay.STATE`, NONE / CHIP / PANEL, sent to the
   other package only, resent every 10 s, stale after 25 s). Two bottom chips sit side
