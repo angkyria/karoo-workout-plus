@@ -132,8 +132,8 @@ signed with a throwaway debug key, so it only installs after an uninstall.
 **1.6.0** — the workout page says **WORKOUT COMPLETE** when the last interval
 ends: the target of every interval as blocks with the power you rode as a line
 through them, then average, % in range and NP, and the interval table. The chip
-is a slim bar now, so it hides less of your fields, and while a route is
-navigated the chip, drawer and page stay above the ride app's navigation banner.
+is a pill the size of the ride app's own navigation pill, and while a route is
+navigated the chip, drawer and page stay above that pill.
 Climber+ 0.1.9 does the same.
 
 **1.5.0** — scroll the workout page for the interval list: **NEXT** shows every

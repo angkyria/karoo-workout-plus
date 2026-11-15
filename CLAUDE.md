@@ -108,8 +108,8 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   After an extension restart the page holds only the intervals since then (records
   live in memory), while the headline time is Karoo's whole workout.
 - **Bottom edge** (`BottomEdge` in `Neighbor.kt`, same object in Climber+): the chip is
-  a slim 15 dp bar (the rider's pick: it covers less of the fields), 3 % off the
-  bottom. While navigating (`OnNavigationState` NavigatingRoute / ToDestination;
+  a 34 dp pill, as tall as the ride app's "Rerouting" pill (63 px; a slim 15 dp bar
+  was too small to read / tap with gloves), 3 % off the bottom — the pill's spot. While navigating (`OnNavigationState` NavigatingRoute / ToDestination;
   Climber+: `NavigationRepo.route != null`) the ride app shrinks its pages for a pill
   at the bottom, so chip, drawer and full page sit 50 dp up, above it.
 - **Climber+ neighbor** (`overlay/Neighbor.kt`, `NeighborLink`): both apps broadcast

@@ -63,8 +63,18 @@ class NeighborRulesTest {
     // ------------------------------------------------------- bottom edge
 
     @Test
-    fun `the chip is a slim bar`() {
-        assertEquals(28, BottomEdge.chipHeightPx(1.875f))
+    fun `the chip is a pill as tall as the ride app's navigation pill`() {
+        // "Rerouting": 63 px on a Karoo 2
+        assertEquals(64, BottomEdge.chipHeightPx(1.875f))
+    }
+
+    @Test
+    fun `while navigating the chip sits whole above the pill`() {
+        val bottom = 800 - BottomEdge.chipOffsetPx(true, 1.875f, 800)
+        val top = bottom - BottomEdge.chipHeightPx(1.875f)
+        assertTrue(bottom <= 712)
+        // over the bottom of the shrunk fields (they end at about y 700), not far up the page
+        assertTrue(top >= 620)
     }
 
     @Test

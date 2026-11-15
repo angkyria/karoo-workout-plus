@@ -330,12 +330,12 @@ class RenderTest {
     }
 
     @Test
-    fun slimChip() {
+    fun pillChip() {
         val view = pageView(ridden(190), Settings(pageMode = PageMode.DRAWER_ONLY), Size.CHIP)
-        assertEquals(28, view.height)
-        // the slim bar still holds the target box and the countdown on one line
+        assertEquals(64, view.height)
+        // the pill holds the target box and the countdown on one line
         assertTrue(view.chipContentWidth(view.height) <= SCREEN_W * 0.9)
-        val bitmap = draw("chip-slim", view)
+        val bitmap = draw("chip-pill", view)
         assertNotEquals(0, bitmap.getPixel(bitmap.width / 2, bitmap.height / 2))
     }
 

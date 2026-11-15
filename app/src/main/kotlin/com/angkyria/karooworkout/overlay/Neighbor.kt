@@ -13,7 +13,7 @@ import kotlin.math.roundToInt
  *  - both on a drawer / full page: the rider's [OverlayPriority] (a Workout+
  *    setting, broadcast to Climber+) keeps one; the other hides until it shrinks.
  *
- * [BottomEdge] places both apps' bottom windows the same way: a slim chip, lifted
+ * [BottomEdge] places both apps' bottom windows the same way: a pill-sized chip, lifted
  * with the panels above the ride app's navigation pill while a route is navigated.
  */
 enum class NeighborPanel { NONE, CHIP, PANEL }
@@ -52,15 +52,17 @@ object NeighborRules {
 }
 
 /**
- * Where bottom-anchored windows sit. The chip is a slim bar so it covers only the
- * edge of the last field row. While navigating, the ride app shrinks its pages for a
- * pill at the bottom (≈ y 712–775 of 800 on a Karoo 2): chip and panels stay above it.
+ * Where bottom-anchored windows sit. The chip is a pill as tall as the ride app's own
+ * navigation pill ("Rerouting", 63 px on a Karoo 2): readable, and big enough to tap
+ * with gloves (the rider found a slim bar too small). While navigating, the ride app
+ * shrinks its pages for that pill at the bottom (≈ y 712–775 of 800): chip and panels
+ * stay above it.
  */
 object BottomEdge {
-    /** ≈ 28 px on a Karoo 2 (density 1.875). */
-    const val CHIP_DP = 15
+    /** ≈ 64 px on a Karoo 2 (density 1.875), the navigation pill's height. */
+    const val CHIP_DP = 34
 
-    /** Clear of the page dots, as the chip always sat. */
+    /** Clear of the page dots: where the navigation pill sits. */
     const val EDGE_OFFSET_FRACTION = 0.03
 
     /** The navigation pill and its margin: the bar's bottom at ≈ y 706. */
