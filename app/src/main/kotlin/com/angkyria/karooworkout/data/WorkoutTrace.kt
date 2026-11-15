@@ -34,8 +34,11 @@ class WorkoutTrace {
     private var fourthSum = 0.0
     private var fourthCount = 0
 
-    /** [ms] of workout time in interval [index] at [output] (null: no reading). */
-    fun add(index: Int, ms: Long, output: Double?) {
+    /**
+     * [ms] of workout time in interval [index] at [output] (null: no reading).
+     * [power]: the output is watts and counts toward NP.
+     */
+    fun add(index: Int, ms: Long, output: Double?, power: Boolean = true) {
         if (ms <= 0) return
         val line = lines.getOrPut(index) { Line() }
         var left = ms
@@ -53,7 +56,7 @@ class WorkoutTrace {
             }
             left -= take
         }
-        if (output != null) sample(ms, output)
+        if (output != null && power) sample(ms, output)
     }
 
     /** Bucket means of interval [index], oldest first; NaN where nothing was read. */
@@ -64,7 +67,7 @@ class WorkoutTrace {
         lines.keys.filter { it >= index }.forEach { lines.remove(it) }
     }
 
-    /** Normalized power over everything ridden; null until 30 s of readings. */
+    /** Normalized power over every power step ridden; null until 30 s of readings. */
     fun normalizedPower(): Double? = if (fourthCount == 0) null else (fourthSum / fourthCount).pow(0.25)
 
     fun reset() {

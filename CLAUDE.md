@@ -103,8 +103,10 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   workouts only) and the interval table; target, fields and CORE are hidden. The line
   comes from **`data/WorkoutTrace`** (pure): `credit` feeds it workout time only, 5 s
   buckets per interval (merged past 720), dropped on rewind / restart, reset per
-  epoch; NP is a 30 s rolling mean over everything ridden. An interval without a line
-  (extension restarted, no sensor) gets its block tinted by its in-range share.
+  epoch; NP is a 30 s rolling mean over the power steps ridden. An interval without a
+  reading (no sensor: all buckets NaN) gets its block tinted by its in-range share.
+  After an extension restart the page holds only the intervals since then (records
+  live in memory), while the headline time is Karoo's whole workout.
 - **Bottom edge** (`BottomEdge` in `Neighbor.kt`, same object in Climber+): the chip is
   a slim 15 dp bar (the rider's pick: it covers less of the fields), 3 % off the
   bottom. While navigating (`OnNavigationState` NavigatingRoute / ToDestination;

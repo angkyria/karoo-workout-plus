@@ -587,7 +587,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
                 else -> path.addRect(x0, inner.bottom - inner.height() * 0.1f, x1, inner.bottom, Path.Direction.CW)
             }
             path.close()
-            fillPaint.color = if (rec.trace.isNotEmpty()) WorkoutColors.BAND else WorkoutColors.inRange(rec.inRangePercent)
+            fillPaint.color = if (rec.trace.any { !it.isNaN() }) WorkoutColors.BAND else WorkoutColors.inRange(rec.inRangePercent)
             canvas.drawPath(path, fillPaint)
             t += rec.actualMs
         }

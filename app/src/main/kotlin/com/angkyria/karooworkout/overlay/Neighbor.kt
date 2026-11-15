@@ -74,5 +74,9 @@ object BottomEdge {
     /** Bottom offset of a bottom-anchored drawer / full page. */
     fun panelOffsetPx(navigating: Boolean, density: Float): Int = if (navigating) navGapPx(density) else 0
 
+    /** A bottom-anchored panel of [heightPx] lifted by the gap keeps its top: it loses the gap. */
+    fun panelHeightPx(heightPx: Int, navigating: Boolean, density: Float): Int =
+        heightPx - panelOffsetPx(navigating, density)
+
     private fun navGapPx(density: Float): Int = (NAV_GAP_DP * density).roundToInt()
 }

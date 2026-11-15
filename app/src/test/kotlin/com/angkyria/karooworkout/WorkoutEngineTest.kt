@@ -491,4 +491,21 @@ class WorkoutEngineTest {
         val s = engine.ride(1, 60_000, 10, primary = power(200.0, 220.0, 300.0))
         assertEquals(150.0, s.workoutAvgOutput!!, 1.0)
     }
+
+    @Test
+    fun npStaysWhenTheLastStepHasNoTarget() {
+        val engine = WorkoutEngine()
+        engine.ride(0, 120_000, 60)
+        val s = engine.ride(1, 60_000, 10, primary = null, kinds = emptyMap())
+        assertEquals(210, s.normalizedPower)
+    }
+
+    @Test
+    fun npCountsOnlyPowerSteps() {
+        val engine = WorkoutEngine()
+        val hr = RawTarget(type = 5, value = 150.0, min = 140.0, max = 160.0, output = 150.0, outputSmoothed = 150.0)
+        engine.ride(0, 120_000, 60, primary = hr, kinds = mapOf(TargetKind.HEART_RATE to 150.0))
+        val s = engine.ride(1, 120_000, 60)
+        assertEquals(210, s.normalizedPower)
+    }
 }

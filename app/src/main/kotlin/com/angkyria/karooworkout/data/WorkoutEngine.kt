@@ -240,7 +240,7 @@ class WorkoutEngine {
                 if (workoutTrackedMs <= 0) null else (workoutInRangeMs * 100 / workoutTrackedMs).toInt(),
             paused = paused,
             complete = complete,
-            normalizedPower = trace.normalizedPower()?.roundToInt()?.takeIf { primaryKind == TargetKind.POWER },
+            normalizedPower = trace.normalizedPower()?.roundToInt(),
         ).also { lastShown = it }
     }
 
@@ -291,7 +291,7 @@ class WorkoutEngine {
 
     private fun credit(rec: Rec, ms: Long, status: TargetStatus?, output: Double?) {
         rec.actualMs += ms
-        trace.add(rec.index, ms, output)
+        trace.add(rec.index, ms, output, power = rec.kind == TargetKind.POWER)
         if (output != null) {
             rec.outputSum += output * ms
             rec.outputMs += ms

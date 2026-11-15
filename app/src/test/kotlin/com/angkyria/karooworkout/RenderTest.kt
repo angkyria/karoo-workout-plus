@@ -507,4 +507,12 @@ class RenderTest {
         /** Karoo 2: 300 dpi. */
         const val KAROO_DENSITY = 1.875f
     }
+
+    @Test
+    fun workoutCompleteWithoutASensor() {
+        // no output streamed: the engine still credits time, every bucket is a gap
+        val s = finished().let { f -> f.copy(history = f.history.map { it.copy(trace = listOf(Float.NaN, Float.NaN)) }) }
+        val page = render("workout-complete-no-sensor", s)
+        assertFalse(page.hasColor(WorkoutColors.BAND, 0.15f, 0.4f))
+    }
 }

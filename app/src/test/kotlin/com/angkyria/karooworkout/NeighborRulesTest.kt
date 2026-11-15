@@ -89,4 +89,12 @@ class NeighborRulesTest {
     fun `while navigating panels stop above the pill`() {
         assertEquals(94, BottomEdge.panelOffsetPx(true, 1.875f))
     }
+
+    @Test
+    fun `while navigating a panel shrinks by the gap and keeps its top`() {
+        val h = BottomEdge.panelHeightPx(736, true, 1.875f)
+        assertEquals(642, h)
+        assertEquals(64, 800 - BottomEdge.panelOffsetPx(true, 1.875f) - h)
+        assertEquals(736, BottomEdge.panelHeightPx(736, false, 1.875f))
+    }
 }

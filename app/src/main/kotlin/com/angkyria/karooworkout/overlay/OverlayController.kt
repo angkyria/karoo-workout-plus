@@ -254,7 +254,7 @@ class OverlayController(private val service: WorkoutExtension) {
                 // the workout page: everything below the ride header / status bar
                 // (and above the navigation pill)
                 width = metrics.widthPixels
-                height = metrics.heightPixels - topInsetPx - BottomEdge.panelOffsetPx(navigating, metrics.density)
+                height = BottomEdge.panelHeightPx(metrics.heightPixels - topInsetPx, navigating, metrics.density)
             }
         }
         // Never take key focus. On a Karoo 2, PerformHardwareAction injects its key
