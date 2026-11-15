@@ -1,5 +1,6 @@
 package com.angkyria.karooworkout
 
+import com.angkyria.karooworkout.overlay.BottomEdge
 import com.angkyria.karooworkout.overlay.NeighborPanel.CHIP
 import com.angkyria.karooworkout.overlay.NeighborPanel.NONE
 import com.angkyria.karooworkout.overlay.NeighborPanel.PANEL
@@ -57,5 +58,35 @@ class NeighborRulesTest {
         val s = NeighborState(PANEL, atMs = 1_000)
         assertEquals(PANEL, s.fresh(1_000 + NeighborRules.STALE_MS).panel)
         assertEquals(NONE, s.fresh(1_001 + NeighborRules.STALE_MS).panel)
+    }
+
+    // ------------------------------------------------------- bottom edge
+
+    @Test
+    fun `the chip is a slim bar`() {
+        assertEquals(28, BottomEdge.chipHeightPx(1.875f))
+    }
+
+    @Test
+    fun `without navigation the chip sits at the bottom`() {
+        assertEquals(24, BottomEdge.chipOffsetPx(false, 1.875f, 800))
+    }
+
+    @Test
+    fun `while navigating the chip clears the pill`() {
+        val offset = BottomEdge.chipOffsetPx(true, 1.875f, 800)
+        assertEquals(94, offset)
+        // the pill's top is at about y 712 of 800
+        assertTrue(800 - offset <= 712)
+    }
+
+    @Test
+    fun `without navigation panels reach the bottom`() {
+        assertEquals(0, BottomEdge.panelOffsetPx(false, 1.875f))
+    }
+
+    @Test
+    fun `while navigating panels stop above the pill`() {
+        assertEquals(94, BottomEdge.panelOffsetPx(true, 1.875f))
     }
 }
