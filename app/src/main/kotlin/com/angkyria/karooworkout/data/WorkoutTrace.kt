@@ -36,9 +36,9 @@ class WorkoutTrace {
 
     /**
      * [ms] of workout time in interval [index] at [output] (null: no reading).
-     * [power]: the output is watts and counts toward NP.
+     * [npOutput]: instant watts for NP (null: not a power step, or no reading).
      */
-    fun add(index: Int, ms: Long, output: Double?, power: Boolean = true) {
+    fun add(index: Int, ms: Long, output: Double?, npOutput: Double? = output) {
         if (ms <= 0) return
         val line = lines.getOrPut(index) { Line() }
         var left = ms
@@ -56,7 +56,7 @@ class WorkoutTrace {
             }
             left -= take
         }
-        if (output != null && power) sample(ms, output)
+        if (npOutput != null) sample(ms, npOutput)
     }
 
     /** Bucket means of interval [index], oldest first; NaN where nothing was read. */
@@ -124,6 +124,18 @@ class WorkoutTrace {
     companion object {
         const val BUCKET_MS = 5_000L
         const val MAX_BUCKETS = 720
+
+        /**
+         * Where each of the [n] buckets of an interval [actualMs] long sits: the middle
+         * of the time it covers. Every bucket is full but the last; merging doubled
+         * the bucket length until [n] covered the interval.
+         */
+        fun bucketCenters(actualMs: Long, n: Int): List<Long> {
+            if (n <= 0) return emptyList()
+            var bucketMs = BUCKET_MS
+            while ((actualMs + bucketMs - 1) / bucketMs > n) bucketMs *= 2
+            return List(n) { i -> (i * bucketMs + min((i + 1) * bucketMs, actualMs).coerceAtLeast(i * bucketMs)) / 2 }
+        }
         private const val NP_WINDOW_S = 30
     }
 }

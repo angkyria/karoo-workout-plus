@@ -107,6 +107,7 @@ class WorkoutEngine {
     private var lastTickMs: Long? = null
     private var lastStatus: TargetStatus? = null
     private var lastOutput: Double? = null
+    private var lastNpOutput: Double? = null
     private var lastShown: WorkoutUiState.Shown? = null
 
     /** Karoo dropped the workout right after it ran out: the summary stays up. */
@@ -136,6 +137,7 @@ class WorkoutEngine {
         lastTickMs = null
         lastStatus = null
         lastOutput = null
+        lastNpOutput = null
         lastShown = null
         holdingComplete = false
         workoutInRangeMs = 0
@@ -178,7 +180,7 @@ class WorkoutEngine {
                 val prev = records[last]
                 val lastRem = lastStepRemaining
                 if (prev != null && lastRem != null && lastRem <= NATURAL_END_MS) {
-                    credit(prev, lastRem, lastStatus, lastOutput)
+                    credit(prev, lastRem, lastStatus, lastOutput, lastNpOutput)
                     prev.endedNaturally = true
                 }
             }
@@ -206,7 +208,10 @@ class WorkoutEngine {
         }
 
         val delta = tickDelta(index == last, s.stepRemainingMs, nowMs, paused)
-        if (delta > 0) credit(rec, delta, primary?.status, primary?.output)
+        // NP takes instant watts, whatever the display smooths
+        val npOutput = s.primary?.takeIf { primaryKind == TargetKind.POWER }
+            ?.let { resolveLive(it, TargetKind.POWER, s.live, smoothedOutput = false, average = null, rec.ramp) }?.output
+        if (delta > 0) credit(rec, delta, primary?.status, primary?.output, npOutput)
         s.stepRemainingMs?.let { rem -> rec.plannedMs = max(rec.plannedMs ?: 0L, rec.actualMs + rem) }
         primary?.let {
             rec.target = it
@@ -220,6 +225,7 @@ class WorkoutEngine {
         lastTickMs = nowMs
         lastStatus = primary?.status
         lastOutput = primary?.output
+        lastNpOutput = npOutput
 
         val onLastStep = index == s.stepCount - 1
         val complete = onLastStep && s.stepRemainingMs == 0L && (s.totalRemainingMs ?: 0L) == 0L
@@ -256,7 +262,7 @@ class WorkoutEngine {
         val ranOut = shown.stepIndex == shown.stepCount - 1 && lastRem != null && lastRem <= NATURAL_END_MS
         if (!shown.complete && !ranOut) return null
         records[shown.stepIndex]?.let { rec ->
-            if (!shown.complete && lastRem != null) credit(rec, lastRem, lastStatus, lastOutput)
+            if (!shown.complete && lastRem != null) credit(rec, lastRem, lastStatus, lastOutput, lastNpOutput)
             rec.endedNaturally = true
         }
         holdingComplete = true
@@ -269,6 +275,7 @@ class WorkoutEngine {
                 if (workoutTrackedMs <= 0) null else (workoutInRangeMs * 100 / workoutTrackedMs).toInt(),
             paused = false,
             complete = true,
+            normalizedPower = trace.normalizedPower()?.roundToInt(),
         ).also { lastShown = it }
     }
 
@@ -289,9 +296,9 @@ class WorkoutEngine {
         return 0
     }
 
-    private fun credit(rec: Rec, ms: Long, status: TargetStatus?, output: Double?) {
+    private fun credit(rec: Rec, ms: Long, status: TargetStatus?, output: Double?, npOutput: Double?) {
         rec.actualMs += ms
-        trace.add(rec.index, ms, output, power = rec.kind == TargetKind.POWER)
+        trace.add(rec.index, ms, output, npOutput)
         if (output != null) {
             rec.outputSum += output * ms
             rec.outputMs += ms

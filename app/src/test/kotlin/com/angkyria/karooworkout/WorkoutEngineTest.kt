@@ -508,4 +508,31 @@ class WorkoutEngineTest {
         val s = engine.ride(1, 120_000, 60)
         assertEquals(210, s.normalizedPower)
     }
+
+    @Test
+    fun npUsesInstantPowerNotTheSmoothedDisplay() {
+        val smoothed = RawTarget(type = 7, value = 210.0, min = 200.0, max = 220.0, output = 250.0, outputSmoothed = 200.0)
+        val s = WorkoutEngine().ride(0, 120_000, 60, primary = smoothed)
+        assertEquals(250, s.normalizedPower)
+        assertEquals(200.0, s.workoutAvgOutput!!, 0.5)
+    }
+
+    @Test
+    fun heldCompleteCountsTheLastSecondInNp() {
+        val engine = WorkoutEngine()
+        // 29 s ridden: one short of NP's window
+        assertNull(engine.ride(4, 30_000, 29).normalizedPower)
+        val held = engine.update(WorkoutSnapshot(stepCount = 0), 60_000, false, true) as WorkoutUiState.Shown
+        assertEquals(210, held.normalizedPower)
+    }
+
+    @Test
+    fun workoutKindAndAverageFollowTheMainKind() {
+        val engine = WorkoutEngine()
+        val hr = RawTarget(type = 5, value = 150.0, min = 140.0, max = 160.0, output = 150.0, outputSmoothed = 150.0)
+        engine.ride(0, 120_000, 60, primary = hr, kinds = mapOf(TargetKind.HEART_RATE to 150.0))
+        val s = engine.ride(1, 60_000, 10)
+        assertEquals(TargetKind.HEART_RATE, s.workoutKind)
+        assertEquals(150.0, s.workoutAvgOutput!!, 0.5)
+    }
 }

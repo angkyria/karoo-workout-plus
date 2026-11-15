@@ -90,4 +90,21 @@ class WorkoutTraceTest {
         assertEquals(emptyList<Float>(), t.line(0))
         assertNull(t.normalizedPower())
     }
+
+    @Test
+    fun bucketCentersSitInTheTimeTheyCover() {
+        // two full 5 s buckets and a 2 s one
+        assertEquals(listOf(2_500L, 7_500L, 11_000L), WorkoutTrace.bucketCenters(12_000, 3))
+        // a long interval merged to 10 s buckets
+        val merged = WorkoutTrace.bucketCenters(7_200_000, 720)
+        assertEquals(5_000L, merged.first())
+        assertEquals(7_195_000L, merged.last())
+    }
+
+    @Test
+    fun bucketCentersMatchTheLineForALongInterval() {
+        val t = WorkoutTrace()
+        repeat(4 * 3600) { t.add(0, 1000, 200.0) }
+        assertEquals(t.line(0).size, WorkoutTrace.bucketCenters(4 * 3600 * 1000L, t.line(0).size).size)
+    }
 }

@@ -103,7 +103,7 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   workouts only) and the interval table; target, fields and CORE are hidden. The line
   comes from **`data/WorkoutTrace`** (pure): `credit` feeds it workout time only, 5 s
   buckets per interval (merged past 720), dropped on rewind / restart, reset per
-  epoch; NP is a 30 s rolling mean over the power steps ridden. An interval without a
+  epoch; NP is a 30 s rolling mean of instant watts over the power steps ridden. An interval without a
   reading (no sensor: all buckets NaN) gets its block tinted by its in-range share.
   After an extension restart the page holds only the intervals since then (records
   live in memory), while the headline time is Karoo's whole workout.

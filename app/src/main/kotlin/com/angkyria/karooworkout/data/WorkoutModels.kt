@@ -132,10 +132,19 @@ sealed interface WorkoutUiState {
     ) : WorkoutUiState {
         val current: IntervalRecord? get() = history.lastOrNull()
 
-        /** Average primary output over the intervals that had one, weighted by their time. */
+        /** The workout's main target kind: the one ridden longest (UNKNOWN doesn't count). */
+        val workoutKind: TargetKind?
+            get() = history.filter { it.kind != null && it.kind != TargetKind.UNKNOWN }
+                .groupBy { it.kind }
+                .maxByOrNull { (_, recs) -> recs.sumOf { it.actualMs } }?.key
+
+        /** Average primary output over the [workoutKind] intervals, weighted by their time. */
         val workoutAvgOutput: Double?
             get() {
-                val withOutput = history.filter { it.avgOutput != null && it.actualMs > 0 }
+                val kind = workoutKind
+                val withOutput = history.filter {
+                    it.avgOutput != null && it.actualMs > 0 && (kind == null || it.kind == kind)
+                }
                 val ms = withOutput.sumOf { it.actualMs }
                 return if (ms <= 0) null else withOutput.sumOf { it.avgOutput!! * it.actualMs } / ms
             }

@@ -24,6 +24,7 @@ import com.angkyria.karooworkout.data.RiderProfile
 import com.angkyria.karooworkout.data.Target
 import com.angkyria.karooworkout.data.TargetKind
 import com.angkyria.karooworkout.data.TargetStatus
+import com.angkyria.karooworkout.data.WorkoutTrace
 import com.angkyria.karooworkout.data.WorkoutUiState
 import com.angkyria.karooworkout.overlay.PanelMachine.Size
 import com.angkyria.karooworkout.settings.OverlayAnchor
@@ -591,18 +592,18 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
             canvas.drawPath(path, fillPaint)
             t += rec.actualMs
         }
-        // the line on top of every block
+        // the line on top of every block, one stroke across the intervals; gaps break it
         t = 0L
         path.rewind()
+        var drawing = false
         for (rec in history) {
-            val n = rec.trace.size
-            var drawing = false
+            val centers = WorkoutTrace.bucketCenters(rec.actualMs, rec.trace.size)
             rec.trace.forEachIndexed { i, v ->
                 if (v.isNaN()) {
                     drawing = false
                     return@forEachIndexed
                 }
-                val x = xOf(t) + (i + 0.5f) / n * (xOf(t + rec.actualMs) - xOf(t))
+                val x = xOf(t + centers[i])
                 val y = yOf(v.toDouble())
                 if (drawing) path.lineTo(x, y) else path.moveTo(x, y)
                 drawing = true
@@ -615,7 +616,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
 
     /** AVG · IN RANGE · NP across the row, for the whole workout. */
     private fun drawTotals(canvas: Canvas, rect: RectF, s: WorkoutUiState.Shown) {
-        val kind = s.history.firstOrNull { it.kind != null }?.kind
+        val kind = s.workoutKind
         val pct = s.workoutInRangePercent
         val cells = listOfNotNull(
             Triple("AVG ", s.workoutAvgOutput?.let { "${it.roundToInt()}${unitOf(kind)}" } ?: "—", Color.WHITE),
@@ -964,14 +965,9 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         // bottom up: the graph or the workout bar, then the interval bar
         var bottom = rect.bottom
         if (withGraph) {
-            val share = if (s.complete) 0.64f else 0.32f
-            val graph = RectF(rect.left, rect.bottom - rect.height() * share, rect.right, rect.bottom)
+            val graph = RectF(rect.left, rect.bottom - rect.height() * 0.32f, rect.right, rect.bottom)
             val recap = cues.recap
-            when {
-                s.complete -> drawSummary(canvas, graph, s)
-                recap != null -> drawRecap(canvas, graph, recap)
-                else -> drawGraph(canvas, graph, s)
-            }
+            if (recap != null) drawRecap(canvas, graph, recap) else drawGraph(canvas, graph, s)
             bottom = graph.top - rect.height() * 0.05f
         } else {
             val workoutBar = RectF(rect.left, bottom - rect.height() * 0.035f, rect.right, bottom)

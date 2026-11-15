@@ -515,4 +515,12 @@ class RenderTest {
         val page = render("workout-complete-no-sensor", s)
         assertFalse(page.hasColor(WorkoutColors.BAND, 0.15f, 0.4f))
     }
+
+    @Test
+    fun workoutCompleteShortIntervalsStillDrawTheLine() {
+        // one bucket an interval: the line runs on across the intervals
+        val s = finished().let { f -> f.copy(history = f.history.map { it.copy(trace = listOf(it.avgOutput!!.toFloat())) }) }
+        val page = render("workout-complete-short", s)
+        assertTrue(page.hasColor(WorkoutColors.ENDING, 0.15f, 0.4f))
+    }
 }
