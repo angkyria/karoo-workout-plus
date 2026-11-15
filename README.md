@@ -7,7 +7,7 @@
 ![Karoo 3](https://img.shields.io/badge/Karoo%203-untested-lightgrey)
 
 **Website: [angkyria.github.io/karoo-workout-plus](https://angkyria.github.io/karoo-workout-plus/)**\
-**Download: [Workout+ 1.5.0](https://github.com/angkyria/karoo-workout-plus/releases/latest)** (`karoo-workout-plus.apk`)
+**Download: [Workout+ 1.6.0](https://github.com/angkyria/karoo-workout-plus/releases/latest)** (`karoo-workout-plus.apk`)
 
 The new Karoo OS workout layout, as a free, open-source extension for the
 **Hammerhead Karoo 2**. The Karoo 3 got a purple workout drawer — target bar,
@@ -107,7 +107,7 @@ to any page of your own.
 ## Installation
 
 1. Download `karoo-workout-plus.apk` from the
-   [latest release](https://github.com/angkyria/karoo-workout-plus/releases/latest) (1.5.0).
+   [latest release](https://github.com/angkyria/karoo-workout-plus/releases/latest) (1.6.0).
 2. Enable Developer Options + USB debugging on the Karoo
    ([Hammerhead guide](https://support.hammerhead.io/hc/en-us/articles/30696553134363)).
 3. Install and allow the overlay:
@@ -128,6 +128,13 @@ Every push also builds a debug APK, attached to its
 signed with a throwaway debug key, so it only installs after an uninstall.
 
 ## Releases
+
+**1.6.0** — the workout page says **WORKOUT COMPLETE** when the last interval
+ends: the target of every interval as blocks with the power you rode as a line
+through them, then average, % in range and NP, and the interval table. The chip
+is a slim bar now, so it hides less of your fields, and while a route is
+navigated the chip, drawer and page stay above the ride app's navigation banner.
+Climber+ 0.1.9 does the same.
 
 **1.5.0** — scroll the workout page for the interval list: **NEXT** shows every
 upcoming interval with its target, length and the time until it starts; **DONE**

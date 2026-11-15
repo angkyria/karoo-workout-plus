@@ -20,8 +20,8 @@ android {
         applicationId = "com.angkyria.karooworkout"
         minSdk = 26 // Karoo 2 (Android 8)
         targetSdk = 34
-        versionCode = 7
-        versionName = "1.5.0"
+        versionCode = 8
+        versionName = "1.6.0"
     }
 
     signingConfigs {

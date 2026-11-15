@@ -94,9 +94,22 @@ Data flows one way: karoo-ext streams → `StreamHub` → `WorkoutStreams.snapsh
   after the interval's first 10 s, then every 30 s). `WorkoutExtension` plays them
   with `PlayBeepPattern` on every page (overlay or not) and re-renders at
   `nextChangeAtMs` so the pulse / recap end without a stream tick.
-- Finished workout: `WorkoutEngine.holdComplete` keeps the completed state (the
-  summary table) if Karoo drops the workout right after its last interval ran out,
-  until the ride ends or a workout loads. Unverified what Karoo actually does.
+- Finished workout: `WorkoutEngine.holdComplete` keeps the completed state if Karoo
+  drops the workout right after its last interval ran out, until the ride ends or a
+  workout loads. Unverified what Karoo actually does. The page then shows only
+  `drawComplete` (the rider's pick, like Karoo's "Training Complete"): headline +
+  time, a graph of each interval's target as `BAND` blocks (ramps as their slope)
+  with the output ridden as an `ENDING` line, totals (AVG / IN RANGE / NP — NP power
+  workouts only) and the interval table; target, fields and CORE are hidden. The line
+  comes from **`data/WorkoutTrace`** (pure): `credit` feeds it workout time only, 5 s
+  buckets per interval (merged past 720), dropped on rewind / restart, reset per
+  epoch; NP is a 30 s rolling mean over everything ridden. An interval without a line
+  (extension restarted, no sensor) gets its block tinted by its in-range share.
+- **Bottom edge** (`BottomEdge` in `Neighbor.kt`, same object in Climber+): the chip is
+  a slim 15 dp bar (the rider's pick: it covers less of the fields), 3 % off the
+  bottom. While navigating (`OnNavigationState` NavigatingRoute / ToDestination;
+  Climber+: `NavigationRepo.route != null`) the ride app shrinks its pages for a pill
+  at the bottom, so chip, drawer and full page sit 50 dp up, above it.
 - **Climber+ neighbor** (`overlay/Neighbor.kt`, `NeighborLink`): both apps broadcast
   what they show (`com.angkyria.karoo.overlay.STATE`, NONE / CHIP / PANEL, sent to the
   other package only, resent every 10 s, stale after 25 s). Two bottom chips sit side
