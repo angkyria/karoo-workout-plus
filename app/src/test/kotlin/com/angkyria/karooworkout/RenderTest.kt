@@ -14,6 +14,7 @@ import com.angkyria.karooworkout.data.Flash
 import com.angkyria.karooworkout.data.NextList
 import com.angkyria.karooworkout.data.PlanTracker
 import com.angkyria.karooworkout.data.RiderProfile
+import com.angkyria.karooworkout.data.TargetKind
 import com.angkyria.karooworkout.data.WorkoutEngine
 import com.angkyria.karooworkout.data.WorkoutStreams
 import com.angkyria.karooworkout.data.WorkoutUiState
@@ -29,6 +30,7 @@ import com.angkyria.karooworkout.settings.TargetDisplay
 import com.angkyria.karooworkout.settings.WorkoutField
 import io.hammerhead.karooext.models.DataType
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -257,6 +259,67 @@ class RenderTest {
                 s.copy(history = many, stepCount = 14, stepIndex = 13, complete = true, stepRemainingMs = 0, totalRemainingMs = 0),
             ),
         )
+    }
+
+    // ------------------------------------------------------- workout complete
+
+    private fun finished(): WorkoutUiState.Shown =
+        ridden(520).copy(complete = true, stepRemainingMs = 0, totalRemainingMs = 0)
+
+    /** Some pixel in rows [fromFrac]..[toFrac] of the height has exactly [color]. */
+    private fun Bitmap.hasColor(color: Int, fromFrac: Float, toFrac: Float): Boolean {
+        for (y in (height * fromFrac).toInt() until (height * toFrac).toInt()) {
+            for (x in 0 until width) if (getPixel(x, y) == color) return true
+        }
+        return false
+    }
+
+    @Test
+    fun workoutComplete() {
+        val s = finished()
+        assertTrue(s.history.all { it.trace.isNotEmpty() })
+        val page = render("workout-complete", s)
+        assertDrawn(page)
+        // the graph: target blocks and the ridden line
+        assertTrue(page.hasColor(WorkoutColors.BAND, 0.15f, 0.4f))
+        assertTrue(page.hasColor(WorkoutColors.ENDING, 0.15f, 0.4f))
+    }
+
+    @Test
+    fun workoutCompleteWithoutTrace() {
+        val s = finished().let { f -> f.copy(history = f.history.map { it.copy(trace = emptyList()) }, normalizedPower = null) }
+        val page = render("workout-complete-no-trace", s)
+        assertDrawn(page)
+        // nothing recorded: blocks tinted by their in-range share, no target-band blocks
+        assertFalse(page.hasColor(WorkoutColors.BAND, 0.15f, 0.4f))
+    }
+
+    @Test
+    fun workoutCompleteWithAPartialTrace() {
+        // the extension restarted mid-workout: early intervals have no line
+        val s = finished().let { f -> f.copy(history = f.history.mapIndexed { i, r -> if (i < 3) r.copy(trace = emptyList()) else r }) }
+        val page = render("workout-complete-mixed", s)
+        assertTrue(page.hasColor(WorkoutColors.BAND, 0.15f, 0.4f))
+        assertTrue(page.hasColor(WorkoutColors.ENDING, 0.15f, 0.4f))
+    }
+
+    @Test
+    fun workoutCompleteHasNoPowerRow() {
+        val s = finished()
+        val page = render("workout-complete-fields", s)
+        // the POWER row's status box would sit in the top of the page
+        assertFalse(page.hasColor(WorkoutColors.status(s.primary!!.status), 0f, 0.09f))
+    }
+
+    @Test
+    fun workoutCompleteHeartRate() {
+        val f = finished()
+        val hr = f.copy(
+            history = f.history.map { it.copy(kind = TargetKind.HEART_RATE) },
+            primary = f.primary!!.copy(kind = TargetKind.HEART_RATE),
+            normalizedPower = null,
+        )
+        assertDrawn(render("workout-complete-hr", hr))
     }
 
     @Test

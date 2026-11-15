@@ -317,6 +317,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
                 s.secondary.sig(),
                 s.history,
                 s.workoutInRangePercent,
+                s.normalizedPower,
                 cues.recap,
                 profile,
                 machine.pinned(settings.pageMode),
@@ -363,6 +364,14 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         color = Color.WHITE
         style = Paint.Style.STROKE
         strokeWidth = 2.5f
+    }
+    /** The output ridden, on the finished page's graph. */
+    private val tracePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = WorkoutColors.ENDING
+        style = Paint.Style.STROKE
+        strokeWidth = 2f * resources.displayMetrics.density
+        strokeJoin = Paint.Join.ROUND
+        strokeCap = Paint.Cap.ROUND
     }
     private val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
@@ -415,7 +424,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         canvas.drawRect(tmp, flashPaint)
     }
 
-    private enum class Section { PRIMARY, SECONDARY, TIMING, CORE_HEAT, FIELDS }
+    private enum class Section { PRIMARY, SECONDARY, TIMING, CORE_HEAT, FIELDS, HEADLINE, GRAPH, TOTALS, TABLE }
 
     /** Stack [sections] (with height weights) top to bottom inside [area]. */
     private fun layout(area: RectF, gap: Float, sections: List<Pair<Section, Float>>): List<Pair<Section, RectF>> {
@@ -461,6 +470,10 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         // no handle on the workout page: it can't be minimized there
         val top = if (machine.pinned(settings.pageMode)) pad * 0.8f else drawHandle(canvas, pad) + pad * 0.35f
         val area = RectF(pad, top, width - pad, height - pad)
+        if (s.complete) {
+            drawComplete(canvas, area, s)
+            return
+        }
         val secondary = s.secondary.takeIf { settings.showSecondary }
         val heat = coreHeat()
         // the data cells (CORE row, fields) must read at a glance: they get the room;
@@ -469,8 +482,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         val sections = buildList {
             add(Section.PRIMARY to 22f)
             if (secondary != null) add(Section.SECONDARY to 8f)
-            // the finished workout's table needs the room the countdown no longer does
-            add(Section.TIMING to if (s.complete) 55f else 35f)
+            add(Section.TIMING to 35f)
             if (heat != null) add(Section.CORE_HEAT to 13f)
             if (fieldRows > 0) add(Section.FIELDS to 15f * fieldRows)
         }
@@ -481,8 +493,159 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
                 Section.TIMING -> drawTiming(canvas, rect, s, withGraph = true)
                 Section.CORE_HEAT -> heat?.let { drawCoreHeat(canvas, rect, it) }
                 Section.FIELDS -> drawFields(canvas, rect, s)
+                else -> Unit
             }
         }
+    }
+
+    /**
+     * The finished workout (the rider's pick, like Karoo's "Training Complete"): the
+     * headline, the target as blocks with the output ridden as a line through them,
+     * the workout's totals and the interval table. Target, fields and CORE are gone.
+     */
+    private fun drawComplete(canvas: Canvas, area: RectF, s: WorkoutUiState.Shown) {
+        val sections = listOf(Section.HEADLINE to 8f, Section.GRAPH to 35f, Section.TOTALS to 6f, Section.TABLE to 51f)
+        for ((section, rect) in layout(area, height * 0.014f, sections)) {
+            when (section) {
+                Section.HEADLINE -> drawHeadline(canvas, rect, s)
+                Section.GRAPH -> drawCompleteGraph(canvas, rect, s)
+                Section.TOTALS -> drawTotals(canvas, rect, s)
+                Section.TABLE -> drawSummary(canvas, rect, s)
+                else -> Unit
+            }
+        }
+    }
+
+    /** "WORKOUT COMPLETE" on the left, the workout time on the right; shrunk to fit the row. */
+    private fun drawHeadline(canvas: Canvas, rect: RectF, s: WorkoutUiState.Shown) {
+        val time = Format.elapsed(s.elapsedMs)
+        fun need(size: Float): Float {
+            labelPaint.textSize = size
+            textPaint.textSize = size
+            return labelPaint.measureText("WORKOUT ") + textPaint.measureText("COMPLETE") +
+                labelPaint.measureText(time) + size
+        }
+        var size = min(rect.height() * 0.9f, width * 0.075f)
+        while (need(size) > rect.width() && size > 8f) size *= 0.94f
+        val baseline = rect.centerY() + capHeight(size) / 2
+        labelPaint.textSize = size
+        labelPaint.textAlign = Paint.Align.LEFT
+        canvas.drawText("WORKOUT", rect.left, baseline, labelPaint)
+        textPaint.textSize = size
+        textPaint.textAlign = Paint.Align.LEFT
+        textPaint.color = Color.WHITE
+        canvas.drawText("COMPLETE", rect.left + labelPaint.measureText("WORKOUT "), baseline, textPaint)
+        labelPaint.textAlign = Paint.Align.RIGHT
+        canvas.drawText(time, rect.right, baseline, labelPaint)
+        labelPaint.textAlign = Paint.Align.LEFT
+    }
+
+    /**
+     * Every interval at its ridden length: its target range as a block (a ramp as its
+     * slope, ±5 %), and the output ridden as a line through it. An interval with no
+     * line (the extension restarted, no sensor) gets its block tinted by its in-range share.
+     */
+    private fun drawCompleteGraph(canvas: Canvas, area: RectF, s: WorkoutUiState.Shown) {
+        val r = area.height() * 0.06f
+        fillPaint.color = WorkoutColors.TRACK
+        canvas.drawRoundRect(area, r, r, fillPaint)
+        val history = s.history.filter { it.actualMs > 0 }
+        val total = history.sumOf { it.actualMs }
+        if (total <= 0) return
+        val top = history.maxOfOrNull { rec ->
+            maxOf(
+                rec.targetMax ?: 0.0,
+                rec.startLevel ?: 0.0,
+                rec.endLevel ?: 0.0,
+                rec.trace.filterNot { it.isNaN() }.maxOrNull()?.toDouble() ?: 0.0,
+            )
+        }?.takeIf { it > 0 }?.times(1.1) ?: return
+        val inner = RectF(area.left, area.top + r, area.right, area.bottom - r * 0.5f)
+        fun xOf(t: Long): Float = inner.left + t.toFloat() / total * inner.width()
+        fun yOf(v: Double): Float = inner.bottom - (v / top).toFloat().coerceIn(0f, 1f) * inner.height()
+
+        canvas.save()
+        canvas.clipRect(area)
+        var t = 0L
+        for (rec in history) {
+            val x0 = xOf(t)
+            val x1 = max(xOf(t + rec.actualMs) - 1f, x0 + 1f)
+            val start = rec.startLevel
+            val end = rec.endLevel
+            val lo = rec.targetMin
+            val hi = rec.targetMax
+            path.rewind()
+            when {
+                start != null && end != null && abs(start - end) >= 0.5 -> {
+                    path.moveTo(x0, yOf(start * 1.05))
+                    path.lineTo(x1, yOf(end * 1.05))
+                    path.lineTo(x1, yOf(end * 0.95))
+                    path.lineTo(x0, yOf(start * 0.95))
+                }
+                lo != null && hi != null -> path.addRect(x0, yOf(hi), x1, yOf(lo), Path.Direction.CW)
+                // free-ride step: a low neutral block
+                else -> path.addRect(x0, inner.bottom - inner.height() * 0.1f, x1, inner.bottom, Path.Direction.CW)
+            }
+            path.close()
+            fillPaint.color = if (rec.trace.isNotEmpty()) WorkoutColors.BAND else WorkoutColors.inRange(rec.inRangePercent)
+            canvas.drawPath(path, fillPaint)
+            t += rec.actualMs
+        }
+        // the line on top of every block
+        t = 0L
+        path.rewind()
+        for (rec in history) {
+            val n = rec.trace.size
+            var drawing = false
+            rec.trace.forEachIndexed { i, v ->
+                if (v.isNaN()) {
+                    drawing = false
+                    return@forEachIndexed
+                }
+                val x = xOf(t) + (i + 0.5f) / n * (xOf(t + rec.actualMs) - xOf(t))
+                val y = yOf(v.toDouble())
+                if (drawing) path.lineTo(x, y) else path.moveTo(x, y)
+                drawing = true
+            }
+            t += rec.actualMs
+        }
+        canvas.drawPath(path, tracePaint)
+        canvas.restore()
+    }
+
+    /** AVG · IN RANGE · NP across the row, for the whole workout. */
+    private fun drawTotals(canvas: Canvas, rect: RectF, s: WorkoutUiState.Shown) {
+        val kind = s.history.firstOrNull { it.kind != null }?.kind
+        val pct = s.workoutInRangePercent
+        val cells = listOfNotNull(
+            Triple("AVG ", s.workoutAvgOutput?.let { "${it.roundToInt()}${unitOf(kind)}" } ?: "—", Color.WHITE),
+            Triple("IN RANGE ", pct?.let { "$it%" } ?: "—", WorkoutColors.inRange(pct)),
+            s.normalizedPower?.let { Triple("NP ", "$it", Color.WHITE) },
+        )
+        fun need(size: Float): Float {
+            labelPaint.textSize = size
+            textPaint.textSize = size
+            return cells.sumOf { (l, v, _) -> (labelPaint.measureText(l) + textPaint.measureText(v) + size).toDouble() }.toFloat()
+        }
+        var size = min(rect.height() * 0.85f, width * 0.05f)
+        while (need(size) > rect.width() && size > 8f) size *= 0.94f
+        val baseline = rect.centerY() + capHeight(size) / 2
+        val slot = rect.width() / cells.size
+        cells.forEachIndexed { i, (label, value, color) ->
+            val w = labelPaint.measureText(label) + textPaint.measureText(value)
+            // first left, last right, any middle one centered
+            val x = when (i) {
+                0 -> rect.left
+                cells.lastIndex -> rect.right - w
+                else -> rect.left + slot * i + (slot - w) / 2
+            }
+            labelPaint.textAlign = Paint.Align.LEFT
+            canvas.drawText(label, x, baseline, labelPaint)
+            textPaint.textAlign = Paint.Align.LEFT
+            textPaint.color = color
+            canvas.drawText(value, x + labelPaint.measureText(label), baseline, textPaint)
+        }
+        textPaint.color = Color.WHITE
     }
 
     /** The CORE reading for the strip, or null when the strip is off or no CORE streams. */
@@ -918,7 +1081,7 @@ class WorkoutOverlayView(context: Context, private val machine: PanelMachine) : 
         canvas.drawRoundRect(area, r, r, fillPaint)
         val pad = width * 0.025f
         val inner = RectF(area.left + pad, area.top + pad * 0.5f, area.right - pad, area.bottom - pad * 0.5f)
-        val rowH = max(inner.height() / (s.history.size + 1), min(inner.height() / 5, height * 0.042f))
+        val rowH = max(inner.height() / (s.history.size + 1), min(inner.height() / 5, height * 0.034f))
         val slots = (inner.height() / rowH).toInt() - 1
         if (slots < 1) return
         val hidden = (s.history.size - slots).coerceAtLeast(0).let { if (it > 0) it + 1 else 0 }
