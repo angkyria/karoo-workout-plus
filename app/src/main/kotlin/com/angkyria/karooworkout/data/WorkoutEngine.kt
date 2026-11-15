@@ -36,13 +36,14 @@ class WorkoutEngine {
         private var lastValue: Double? = null
         private var lastEnds: Pair<Double?, Double?>? = null
 
-        fun snapshot() = IntervalRecord(
+        fun snapshot(line: List<Float>) = IntervalRecord(
             index, plannedMs, actualMs, kind, startLevel, endLevel, inRangeMs, underMs, overMs,
             avgOutput = if (outputMs > 0) outputSum / outputMs else null,
             targetMin = target?.min,
             targetMax = target?.max,
             targetImplied = target?.implied ?: false,
             endedNaturally = endedNaturally,
+            trace = line,
         )
 
         fun restart(remainingMs: Long) {
@@ -113,6 +114,9 @@ class WorkoutEngine {
     private var workoutInRangeMs = 0L
     private var workoutTrackedMs = 0L
 
+    /** The primary output as ridden, per interval, and NP: the finished page's line. */
+    private val trace = WorkoutTrace()
+
     /** Karoo's numeric target type -> kind, learned whenever a per-kind stream matches. */
     private val learnedKinds = mutableMapOf<Int, TargetKind>()
 
@@ -136,6 +140,7 @@ class WorkoutEngine {
         holdingComplete = false
         workoutInRangeMs = 0
         workoutTrackedMs = 0
+        trace.reset()
     }
 
     fun update(
@@ -167,6 +172,7 @@ class WorkoutEngine {
             if (index < last) {
                 // rewind: the steps from here on are ridden again
                 records.keys.filter { it >= index }.forEach { records.remove(it) }
+                trace.dropFrom(index)
             } else {
                 // a step that ran out naturally still had its final partial second to credit
                 val prev = records[last]
@@ -184,6 +190,7 @@ class WorkoutEngine {
         if (index == last && rem != null && lastRem != null && rem > lastRem + RESTART_SLACK_MS) {
             // the countdown jumped back up: the same interval restarted
             rec.restart(rem)
+            trace.dropFrom(index)
         }
 
         // Karoo: the primary target is HR or power, the secondary HR, power or cadence
@@ -217,7 +224,7 @@ class WorkoutEngine {
         val onLastStep = index == s.stepCount - 1
         val complete = onLastStep && s.stepRemainingMs == 0L && (s.totalRemainingMs ?: 0L) == 0L
         if (complete) rec.endedNaturally = true
-        val history = records.values.map { it.snapshot() }
+        val history = records.values.map { it.snapshot(trace.line(it.index)) }
         return WorkoutUiState.Shown(
             stepIndex = index,
             stepCount = s.stepCount,
@@ -233,6 +240,7 @@ class WorkoutEngine {
                 if (workoutTrackedMs <= 0) null else (workoutInRangeMs * 100 / workoutTrackedMs).toInt(),
             paused = paused,
             complete = complete,
+            normalizedPower = trace.normalizedPower()?.roundToInt()?.takeIf { primaryKind == TargetKind.POWER },
         ).also { lastShown = it }
     }
 
@@ -256,7 +264,7 @@ class WorkoutEngine {
         return shown.copy(
             stepRemainingMs = 0,
             totalRemainingMs = 0,
-            history = records.values.map { it.snapshot() },
+            history = records.values.map { it.snapshot(trace.line(it.index)) },
             workoutInRangePercent =
                 if (workoutTrackedMs <= 0) null else (workoutInRangeMs * 100 / workoutTrackedMs).toInt(),
             paused = false,
@@ -283,6 +291,7 @@ class WorkoutEngine {
 
     private fun credit(rec: Rec, ms: Long, status: TargetStatus?, output: Double?) {
         rec.actualMs += ms
+        trace.add(rec.index, ms, output)
         if (output != null) {
             rec.outputSum += output * ms
             rec.outputMs += ms

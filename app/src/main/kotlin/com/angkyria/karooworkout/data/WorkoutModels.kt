@@ -97,6 +97,8 @@ data class IntervalRecord(
     val targetImplied: Boolean = false,
     /** The countdown ran out (vs. skipped, rewound or still running). */
     val endedNaturally: Boolean = false,
+    /** The primary output as ridden, one value per bucket ([WorkoutTrace]); NaN = no reading. */
+    val trace: List<Float> = emptyList(),
 ) {
     val trackedMs: Long get() = inRangeMs + underMs + overMs
 
@@ -125,8 +127,18 @@ sealed interface WorkoutUiState {
         val complete: Boolean,
         /** The interval list under the current one; null until the plan tracker has run. */
         val next: NextList? = null,
+        /** Normalized power over the ride so far; power workouts only. */
+        val normalizedPower: Int? = null,
     ) : WorkoutUiState {
         val current: IntervalRecord? get() = history.lastOrNull()
+
+        /** Average primary output over the intervals that had one, weighted by their time. */
+        val workoutAvgOutput: Double?
+            get() {
+                val withOutput = history.filter { it.avgOutput != null && it.actualMs > 0 }
+                val ms = withOutput.sumOf { it.actualMs }
+                return if (ms <= 0) null else withOutput.sumOf { it.avgOutput!! * it.actualMs } / ms
+            }
 
         /** Elapsed + remaining: the whole workout as it currently stands (shrinks on skips). */
         val totalMs: Long? get() = totalRemainingMs?.let { elapsedMs + it }

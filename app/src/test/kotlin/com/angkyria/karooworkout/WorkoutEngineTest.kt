@@ -11,6 +11,7 @@ import com.angkyria.karooworkout.data.WorkoutUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -421,5 +422,73 @@ class WorkoutEngineTest {
         val engine = WorkoutEngine()
         engine.tick(snap(2, 40_000))
         assertEquals(WorkoutUiState.Hidden, engine.update(WorkoutSnapshot(stepCount = 0), 0, false, true))
+    }
+
+    // ------------------------------------------------------------ trace
+
+    /** Ride step [index] for [seconds] from [fromMs] left on its countdown. */
+    private fun WorkoutEngine.ride(index: Int, fromMs: Long, seconds: Int, count: Int = 5, primary: RawTarget? = power(200.0, 220.0, 210.0), kinds: Map<TargetKind, Double> = mapOf(TargetKind.POWER to 210.0)): WorkoutUiState.Shown {
+        var s: WorkoutUiState.Shown? = null
+        for (k in 0..seconds) s = tick(snap(index, fromMs - k * 1000L, count = count, primary = primary, kinds = kinds))
+        return s!!
+    }
+
+    @Test
+    fun traceFollowsTheOutput() {
+        val s = WorkoutEngine().ride(0, 60_000, 10)
+        assertEquals(listOf(210f, 210f), s.history[0].trace)
+    }
+
+    @Test
+    fun rewindDropsTheTrace() {
+        val engine = WorkoutEngine()
+        engine.ride(0, 60_000, 10)
+        engine.ride(1, 60_000, 10)
+        val s = engine.ride(0, 60_000, 5, primary = power(200.0, 220.0, 205.0))
+        assertEquals(1, s.history.size)
+        assertEquals(listOf(205f), s.history[0].trace)
+    }
+
+    @Test
+    fun restartedIntervalStartsANewTrace() {
+        val engine = WorkoutEngine()
+        engine.ride(1, 60_000, 10)
+        val s = engine.ride(1, 60_000, 5, primary = power(200.0, 220.0, 205.0))
+        assertEquals(listOf(205f), s.current!!.trace)
+    }
+
+    @Test
+    fun heldCompleteKeepsTheTrace() {
+        val engine = WorkoutEngine()
+        engine.ride(4, 40_000, 39)
+        val held = engine.update(WorkoutSnapshot(stepCount = 0), 60_000, false, true) as WorkoutUiState.Shown
+        assertTrue(held.complete)
+        assertTrue(held.current!!.trace.isNotEmpty())
+        assertNotNull(held.normalizedPower)
+    }
+
+    @Test
+    fun npOnlyForPower() {
+        assertEquals(210, WorkoutEngine().ride(0, 120_000, 60).normalizedPower)
+        val hr = RawTarget(type = 5, value = 150.0, min = 140.0, max = 160.0, output = 150.0, outputSmoothed = 150.0)
+        val s = WorkoutEngine().ride(0, 120_000, 60, primary = hr, kinds = mapOf(TargetKind.HEART_RATE to 150.0))
+        assertEquals(TargetKind.HEART_RATE, s.primary!!.kind)
+        assertNull(s.normalizedPower)
+    }
+
+    @Test
+    fun newEpochClearsTheTrace() {
+        val engine = WorkoutEngine()
+        engine.ride(0, 60_000, 10)
+        val s = engine.tick(snap(0, 60_000, count = 8))
+        assertTrue(s.history.all { it.trace.isEmpty() })
+    }
+
+    @Test
+    fun workoutAverageWeighsIntervalsByTime() {
+        val engine = WorkoutEngine()
+        engine.ride(0, 60_000, 30, primary = power(200.0, 220.0, 100.0))
+        val s = engine.ride(1, 60_000, 10, primary = power(200.0, 220.0, 300.0))
+        assertEquals(150.0, s.workoutAvgOutput!!, 1.0)
     }
 }
